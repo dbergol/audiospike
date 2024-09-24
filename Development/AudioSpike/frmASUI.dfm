@@ -1,0 +1,20 @@
+object formASUI: TformASUI
+  Left = 700
+  Top = 10
+  BorderIcons = [biSystemMenu]
+  Caption = 'formASUI'
+  ClientHeight = 365
+  ClientWidth = 410
+  Color = clWhite
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  Position = poDefault
+  Visible = True
+  OnClose = FormClose
+  OnMouseActivate = FormMouseActivate
+  OnShow = FormShow
+  TextHeight = 13
+end
