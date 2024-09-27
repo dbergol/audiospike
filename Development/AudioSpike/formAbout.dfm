@@ -4,22 +4,22 @@ object AboutBox: TAboutBox
   BorderStyle = bsDialog
   Caption = 'About'
   ClientHeight = 481
-  ClientWidth = 472
+  ClientWidth = 502
   Color = clWhite
   Font.Charset = DEFAULT_CHARSET
   Font.Color = 7028737
   Font.Height = -11
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Tahoma'
   Font.Style = []
   OnShow = FormShow
   DesignSize = (
-    472
+    502
     481)
-  TextHeight = 14
+  TextHeight = 13
   object pnl: TPanel
     Left = 0
     Top = 0
-    Width = 472
+    Width = 502
     Height = 438
     Align = alTop
     Anchors = [akLeft, akTop, akRight, akBottom]
@@ -48,7 +48,7 @@ object AboutBox: TAboutBox
     end
     object imgAsio: TImage
       Left = 15
-      Top = 173
+      Top = 177
       Width = 80
       Height = 75
       AutoSize = True
@@ -1562,7 +1562,7 @@ object AboutBox: TAboutBox
     end
     object imgVST: TImage
       Left = 15
-      Top = 253
+      Top = 257
       Width = 80
       Height = 51
       AutoSize = True
@@ -1704,76 +1704,80 @@ object AboutBox: TAboutBox
     end
     object bvlLine1: TBevel
       Left = 0
-      Top = 159
-      Width = 470
+      Top = 165
+      Width = 500
       Height = 9
       Shape = bsTopLine
     end
     object lbVersionValue: TLabel
       Left = 108
       Top = 68
-      Width = 37
-      Height = 14
+      Width = 35
+      Height = 13
       Caption = 'Version'
       IsControl = True
     end
     object lbLicValue: TLabel
       Left = 108
       Top = 84
-      Width = 162
-      Height = 14
+      Width = 155
+      Height = 13
       Caption = 'GNU General Public license (GPL)'
       IsControl = True
     end
     object bvlLine2: TBevel
       Left = 0
-      Top = 319
-      Width = 470
-      Height = 3
+      Top = 323
+      Width = 500
+      Height = 8
       Shape = bsTopLine
     end
     object Bevel1: TBevel
       Left = 2
       Top = 57
-      Width = 480
-      Height = 2
+      Width = 498
+      Height = 5
       Shape = bsTopLine
     end
     object reOwn: TRichEdit
-      Left = 13
-      Top = 103
-      Width = 359
-      Height = 54
+      Left = 108
+      Top = 104
+      Width = 389
+      Height = 58
       TabStop = False
       BevelInner = bvLowered
       BevelOuter = bvRaised
       BorderStyle = bsNone
       Font.Charset = ANSI_CHARSET
-      Font.Color = clWindowText
+      Font.Color = 7028737
       Font.Height = -11
-      Font.Name = 'MS Sans Serif'
+      Font.Name = 'Tahoma'
       Font.Style = []
       Lines.Strings = (
         'Copyright '#169' 2023'
         'Dr. Daniel Berg, Carl von Ossietzky University Oldenburg'
-        'http://www.audiospike.de')
+        'http://www.audiospike.de'
+        
+          'Supported by the German Research Council (EXC 2177/1; project ID' +
+          ' 390895286)')
       ParentColor = True
       ParentFont = False
       TabOrder = 0
       Transparent = True
+      WordWrap = False
     end
     object reAsio: TRichEdit
       Left = 108
-      Top = 198
-      Width = 360
+      Top = 202
+      Width = 373
       Height = 40
       TabStop = False
       BorderStyle = bsNone
       Color = clBtnFace
       Font.Charset = ANSI_CHARSET
-      Font.Color = clWindowText
+      Font.Color = 7028737
       Font.Height = -11
-      Font.Name = 'MS Sans Serif'
+      Font.Name = 'Tahoma'
       Font.Style = []
       Lines.Strings = (
         'ASIO Interface Technology by Steinberg Media Technologies GmbH'
@@ -1787,16 +1791,16 @@ object AboutBox: TAboutBox
     end
     object reVST: TRichEdit
       Left = 108
-      Top = 262
+      Top = 267
       Width = 359
       Height = 40
       TabStop = False
       BorderStyle = bsNone
       Color = clBtnFace
       Font.Charset = ANSI_CHARSET
-      Font.Color = clWindowText
+      Font.Color = 7028737
       Font.Height = -11
-      Font.Name = 'MS Sans Serif'
+      Font.Name = 'Tahoma'
       Font.Style = []
       Lines.Strings = (
         
@@ -1813,32 +1817,32 @@ object AboutBox: TAboutBox
     object reLibSndFile: TRichEdit
       AlignWithMargins = True
       Left = 15
-      Top = 332
-      Width = 452
-      Height = 101
+      Top = 348
+      Width = 482
+      Height = 85
       Margins.Left = 13
       TabStop = False
       Align = alBottom
       BorderStyle = bsNone
       Color = clBtnFace
       Font.Charset = ANSI_CHARSET
-      Font.Color = clWindowText
+      Font.Color = 7028737
       Font.Height = -11
-      Font.Name = 'MS Sans Serif'
+      Font.Name = 'Tahoma'
       Font.Style = []
       HideScrollBars = False
       Lines.Strings = (
         
           'SoundMexPro uses the libsndfile by Erik de Castro Lopo and other' +
-          's, see '
-        '                       http://www.mega-nerd.com/libsndfile/'
-        'It published under the GNU Lesser General Public License.'
-        ''
+          's published under the GNU '
+        
+          'Lesser General Public License, see http://www.mega-nerd.com/libs' +
+          'ndfile/'
+        '                      '
         
           'SoundMexPro uses FFTW by Matteo Frigo, Massachusetts Institute o' +
-          'f Technology, see'
-        '                       http://www.fftw.org'
-        'It published under the GNU General Public License.')
+          'f Technology published '
+        'under the GNU General Public License see http://www.fftw.org')
       ParentFont = False
       ReadOnly = True
       TabOrder = 3
@@ -1847,7 +1851,7 @@ object AboutBox: TAboutBox
     object Panel1: TPanel
       Left = 2
       Top = 2
-      Width = 468
+      Width = 498
       Height = 55
       Align = alTop
       BevelOuter = bvNone
@@ -1863,7 +1867,7 @@ object AboutBox: TAboutBox
     end
   end
   object OKButton: TButton
-    Left = 172
+    Left = 199
     Top = 444
     Width = 114
     Height = 32

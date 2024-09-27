@@ -1,6 +1,6 @@
 1 VERSIONINFO LOADONCALL MOVEABLE DISCARDABLE IMPURE
-FILEVERSION 2, 9, 0, 0
-PRODUCTVERSION 2, 9, 0, 0
+FILEVERSION 2, 1, 0, 0
+PRODUCTVERSION 2, 1, 0, 0
 FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
 FILEOS VOS__WINDOWS32
 FILETYPE VFT_APP
@@ -11,8 +11,8 @@ FILETYPE VFT_APP
   {
    VALUE "CompanyName", "Daniel Berg\000"
    VALUE "ProductName", "AudioSpike\000"
-   VALUE "ProductVersion", "2.9.0.0\000"
-   VALUE "FileVersion", "2.9.0.0\000"
+   VALUE "ProductVersion", "2.1.0.0\000"
+   VALUE "FileVersion", "2.1.0.0\000"
    VALUE "LegalCopyright", "Copyright 2023 Daniel Berg\000"
    VALUE "FileDescription", "VST cal visual equalizer for AudioSpike\000"
    VALUE "InternalName", "HtVSTCalVisAS\000"

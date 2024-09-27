@@ -2,6 +2,8 @@
 	Description of AudioSpike source code files
 
 	Copyright 2023 Daniel Berg, Oldenburg, Germany
+Supported by the German Research Council (DFG, EXC 2177/1; project ID 390895286)
+
 ****************************************************************************
 
 ****************************************************************************
@@ -22,13 +24,15 @@
 The source code archive of AudioSpike contains all source code files and
 C++-Builder project files (*.cbproj) to compile all executables and libraries
 of AudioSpike. If not stated differently in separate _README.txt files within 
-a projects subdirectory all projects were compiled using Embarcadero C++-Builder
-11.3 Alexandria Professional. They were compiled using "Steema TChart Pro". The Pro
-version is needed for histograms and calculation functions used within AudioSpike, 
-compiling with the using "Steema TChart Standard" shipped with C++-Builder will fail.
+a projects subdirectory all projects were compiled using Embarcadero C++-Builder. 
+They were compiled using "Steema TChart Pro". The Pro version is needed for 
+histograms and calculation functions used within AudioSpike, compiling with the 
+using "Steema TChart Standard" shipped with C++-Builder will fail.
 You might need to adjust paths and/or 3rd party source code files and/or libraries 
 within the project files for a successful build. 
 
 
 Please extract the Development-directory conained in the archive to the installation 
 directory of AudioSpike and read the contained _README.txt carefully
+
+Binaries (installers) are available on the AudioSpike homepage https://www.audiospike.de
