@@ -1106,6 +1106,12 @@ bool SWSMP::Init(int nMode)
       if (!m_usLog.IsEmpty())
          us += "logfile=" + m_usLog + ";";
 
+      // if neither tracksview nor mixer to be displayed (used for debugging only)
+      // we disable GUI: increases performance of SoundMexPro DLL
+      if (!m_bShowTracks && !m_bShowMixer)
+         us += "nogui=1;";
+
+
       bool bReturn = Command("init", us);
 
       // on success retrieve buffer size
@@ -2492,6 +2498,10 @@ bool SWSMP::MaxSearch()
          if (!m_usLog.IsEmpty())
             us += "logfile=" + m_usLog + ";";
 
+         // if neither tracksview nor mixer to be displayed (used for debugging only)
+         // we disable GUI: increases performance of SoundMexPro DLL
+         if (!m_bShowTracks && !m_bShowMixer)
+            us += "nogui=1;";
          if (!Command("init", us))
             return false;
 
@@ -2685,6 +2695,11 @@ bool SWSMP::InitCalibration(int nOutChannel, bool bUseRefMic)
       if (!m_usLog.IsEmpty())
          us += "logfile=" + m_usLog + ";";
 
+      // if neither tracksview nor mixer to be displayed (used for debugging only)
+      // we disable GUI: increases performance of SoundMexPro DLL
+      if (!m_bShowTracks && !m_bShowMixer)
+         us += "nogui=1;";
+
       if (!Command("init", us))
          return false;
 
@@ -2796,6 +2811,12 @@ LPFNFILTER SWSMP::InitSpectralCalibration(int nOutChannel, TCalMode cmMode)
 
       if (!m_usLog.IsEmpty())
          us += "logfile=" + m_usLog + ";";
+
+      // if neither tracksview nor mixer to be displayed (used for debugging only)
+      // we disable GUI: increases performance of SoundMexPro DLL
+      if (!m_bShowTracks && !m_bShowMixer)
+         us += "nogui=1;";
+
       if (!Command("init", us))
          throw Exception("'init' failed");
 
