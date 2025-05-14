@@ -83,6 +83,7 @@ class CHtVSTEq : public AudioEffectX
       virtual void getProgramName (char *name);
 
       // Parameters
+      virtual void setSampleRate (float sampleRate);
       virtual void setParameter (VstInt32 index, float value);
       virtual float getParameter (VstInt32 index);
       virtual void getParameterLabel (VstInt32 index, char *label);

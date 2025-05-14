@@ -135,6 +135,16 @@ CHtVSTEq::~CHtVSTEq ()
 //--------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------
+// overloaded base class function: re-initalizes filter borders
+//--------------------------------------------------------------------------
+void CHtVSTEq::setSampleRate (float sampleRate)
+{
+   AudioEffectX::setSampleRate (sampleRate);
+   m_vafFilterBorders[1] = 0.75f*sampleRate/2.0f;
+}
+//--------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------
 /// sets program name: reads passed flag and parses it to a infile-filename 
 /// and infile-section
 //--------------------------------------------------------------------------
@@ -470,12 +480,12 @@ void CHtVSTEq::SpecProcessCallback(vvac & vvacSpectrum)
          }
       #endif
 
-      //calculate new spectrum
-      unsigned int n;
-      // NOTE: first bin in spec is DC Set it to 0!!
-      vvacSpectrum[0][0] = 0;
-      for (n = 1; n < vvacSpectrum[0].size(); n++)
-         vvacSpectrum[0][n] *= m_vafFilter[n-1];
+      // calculate new spectrum
+      unsigned int nChannel;
+      for (nChannel = 0; nChannel < m_nNumChannels; nChannel++)
+         {
+         vvacSpectrum[nChannel] *= m_vafFilter[nChannel];
+         }
 
 
       #ifdef VISUAL_PLUGIN
