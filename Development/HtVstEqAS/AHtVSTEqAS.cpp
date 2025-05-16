@@ -141,6 +141,11 @@ void CHtVSTEq::setSampleRate (float sampleRate)
 {
    AudioEffectX::setSampleRate (sampleRate);
    m_vafFilterBorders[1] = 0.75f*sampleRate/2.0f;
+
+   #ifdef VISUAL_PLUGIN
+   m_pfrmVisual->Initialize(m_nFFTLen, sampleRate);
+   FilterToChart();
+   #endif
 }
 //--------------------------------------------------------------------------
 
@@ -480,12 +485,13 @@ void CHtVSTEq::SpecProcessCallback(vvac & vvacSpectrum)
          }
       #endif
 
-      // calculate new spectrum
-      unsigned int nChannel;
-      for (nChannel = 0; nChannel < m_nNumChannels; nChannel++)
-         {
-         vvacSpectrum[nChannel] *= m_vafFilter[nChannel];
-         }
+
+      //calculate new spectrum
+      unsigned int n;
+      for (n = 0; n < m_vafFilter.size(); n++)
+         vvacSpectrum[0][n] *= m_vafFilter[n];
+      // last bin same factor than last but one
+      vvacSpectrum[0][vvacSpectrum[0].size()-1] *= m_vafFilter[m_vafFilter.size()-1];
 
 
       #ifdef VISUAL_PLUGIN
