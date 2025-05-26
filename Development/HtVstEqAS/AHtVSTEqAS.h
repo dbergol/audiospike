@@ -124,6 +124,7 @@ class CHtVSTEq : public AudioEffectX
       vvaf                    m_vvafBuffer;
       CHtOLA*                 m_pOLA;
 
+      void EnsureFilter();
       void InitFilter();
       void InitOLA();
       void ExitOLA();
@@ -140,6 +141,8 @@ class CHtVSTEq : public AudioEffectX
       static void      ExtFilterFunction(int nFunction, std::valarray<float >* pvaf, AnsiString as);
       void             FilterFunction(int nFunction, std::valarray<float >* pvaf, AnsiString as);
       #endif
+
+
 };
 //------------------------------------------------------------------------------
 #endif // AHtVSTEqASH

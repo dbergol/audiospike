@@ -63,6 +63,8 @@ class TfrmEqInput : public TForm
       void __fastcall FormShow(TObject *Sender);
 
    private:	// Anwender-Deklarationen
+      unsigned int m_nFFTLen;
+      float m_fSampleRate;
       void ReadSettings();
    public:		// Anwender-Deklarationen
       __fastcall TfrmEqInput();

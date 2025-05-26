@@ -451,7 +451,11 @@ void TformSpikeWare::StoreFormPos(TForm* pfrm)
    if (pfrm->ClientHeight < 10)
       return;
    if (pfrm == this)
+      {
       m_pIni->WriteBool(usSection, "Maximized", pfrm->WindowState == wsMaximized);
+      if (pfrm->WindowState == wsMaximized)
+         m_pIni->WriteInteger(usSection, "MaximizedLeft", pfrm->Left);
+      }
 
    if (pfrm->WindowState == wsNormal)
       {
@@ -462,6 +466,7 @@ void TformSpikeWare::StoreFormPos(TForm* pfrm)
       m_pIni->WriteInteger(usSection, "Height", pfrm->Height);
       m_pIni->WriteInteger(usSection, "Width", pfrm->Width);
       }
+
 
    // use menu item if exists: in 'free-window-mode' forms are invisible already
    // in destructor!!
@@ -493,10 +498,11 @@ void TformSpikeWare::RestoreFormPos(TForm* pfrm)
 
    if (pfrm == this)
       {
-      if (m_pIni->ReadBool(usSection, "Maximized", false))
+      if (m_pIni->ReadBool(usSection, "Maximized", false)) {
+         pfrm->Left   = m_pIni->ReadInteger(usSection, "MaximizedLeft",   m_pIni->ReadInteger("Defaults", usDefault+"Left",   0));
          WindowState = wsMaximized;
+         }
       }
-   
 }
 //------------------------------------------------------------------------------
 
@@ -658,7 +664,7 @@ void TformSpikeWare::SetStyle()
 //------------------------------------------------------------------------------
 /// processes commands passed on command line either from 'real' command line
 /// or from m_pslParamStr: a call to second instance may create a file with
-/// command line parameters and notifies THSI instance to read it to m_pslParamStr
+/// command line parameters and notifies THIS instance to read it to m_pslParamStr
 //------------------------------------------------------------------------------
 void TformSpikeWare::ProcessCommandLine(bool bReadFromCommandLine)
 {
@@ -3575,6 +3581,7 @@ void TformSpikeWare::SWErrorBox(UnicodeString us, HWND hwnd)
 }
 //------------------------------------------------------------------------------
 
+
 //------------------------------------------------------------------------------
 /// OnMessage callback of Application object WM_SWCMD message that is sent by
 /// a second nstance, when it has written it's command line parameters to a file
@@ -3584,26 +3591,30 @@ void __fastcall TformSpikeWare::AppMessage(tagMSG &Msg, bool &Handled)
    if (Msg.message == WM_SWCMD)
       {
       // CHECK IF ANY INTERACTION ALLOWED
-      if (  m_gs > SWGS_RESULTLOADED
-
-         || Application->ModalLevel > 0)
+      if (  Application->ModalLevel > 0
+         || m_gs == SWGS_FREESEARCHRUN
+         || m_gs == SWGS_SEARCH
+         || m_gs == SWGS_RUN
+         || m_gs == SWGS_PAUSE
+         )
          {
          SetStatusMsg("External call to " + m_usASCaption + " detected while not allowed");
          return;
          }
 
-      UnicodeString us;
-      if (!!m_pIni)
+      ReadParamStrIni(m_pslParamStr);
+      if (m_pslParamStr->Count)
          {
-         int nParamCount = m_pIni->ReadInteger("IPC", "ParamCount", 0);
-         if (nParamCount > 0)
+         UnicodeString us = m_pslParamStr->Values["settings"];
+         if (us.Length() && us != ms_usSettingsName)
             {
-            m_pslParamStr->Clear();
-            int n;
-            for (n = 0; n < nParamCount; n++)
-               m_pslParamStr->Add(m_pIni->ReadString("IPC", "Param" + IntToStr(n+1), ""));
-            ProcessCommandLine(false);
+            SetStatusMsg("External call to " + m_usASCaption + " with different settings detected. Switching only possible with restart of AudioSpike!");
+            return;
             }
+
+         if (m_gs == SWGS_FREESEARCHSTOP)
+            m_pformSearchFree->Close();
+         ProcessCommandLine(false);
          }
       Handled = true;
       }

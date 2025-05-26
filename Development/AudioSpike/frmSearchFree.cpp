@@ -138,39 +138,56 @@ void __fastcall TformSearchFree::FormClose(TObject *Sender, TCloseAction &Action
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnMouseDown callback of chart: writes values to members and calls SetValues
+/// OnMouseDown callback of chart.
+/// Right mouse click: toggles playback/stop
+/// Left mouse click: writes values to members and calls SetValues
 //------------------------------------------------------------------------------
 #pragma argsused
 void __fastcall TformSearchFree::chrtMouseDown(TObject *Sender, TMouseButton Button, TShiftState Shift,
           int X, int Y)
 {
-   if (  X <= chrt->ChartRect.Left || X >= chrt->ChartRect.Right
-      || Y <= chrt->ChartRect.Top || Y >= chrt->ChartRect.Bottom
-      )
-      return;
-   chrt->Enabled = false;
-   try
+
+   if (Button == mbRight)
       {
-      if (tbtnSine->Down)
-         {
-         double dVal = cs->XScreenToValue(X);
-         if (dVal < 1.0)
-            dVal = 1.0;
-         if (dVal > formSpikeWare->m_swsStimuli.m_dDeviceSampleRate/2.0)
-            dVal = formSpikeWare->m_swsStimuli.m_dDeviceSampleRate/2.0;
-         cs->XValues->Value[0] = dVal;
-         }
-      else
-         cs->XValues->Value[0] = cs->XScreenToValue(chrt->ChartRect.Left + chrt->ChartRect.Width()/2);
-      cs->YValues->Value[0] = cs->YScreenToValue(Y);
-      m_fFrequency   = (float)cs->XValues->Value[0];
-      m_fGain        = (float)cs->YValues->Value[0];
-      SetValues();
+      if (btnStart->Enabled)
+         btnStartClick(NULL);
+      else if (btnStop->Enabled)
+         btnStopClick(NULL);
       }
-   __finally
+   else if (Button == mbLeft)
       {
-      chrt->Enabled = TRUE;
-      cs->Repaint();
+
+
+      if (  X <= chrt->ChartRect.Left || X >= chrt->ChartRect.Right
+         || Y <= chrt->ChartRect.Top || Y >= chrt->ChartRect.Bottom
+         )
+         return;
+      chrt->Enabled = false;
+      try
+         {
+         if (tbtnSine->Down)
+            {
+            double dVal = cs->XScreenToValue(X);
+            if (dVal < 1.0)
+               dVal = 1.0;
+            if (dVal > formSpikeWare->m_swsStimuli.m_dDeviceSampleRate/2.0)
+               dVal = formSpikeWare->m_swsStimuli.m_dDeviceSampleRate/2.0;
+            cs->XValues->Value[0] = dVal;
+            m_fFrequency   = (float)cs->XValues->Value[0];
+            }
+         else
+            cs->XValues->Value[0] = cs->XScreenToValue(chrt->ChartRect.Left + chrt->ChartRect.Width()/2);
+         cs->YValues->Value[0] = cs->YScreenToValue(Y);
+
+
+         m_fGain        = (float)cs->YValues->Value[0];
+         SetValues();
+         }
+      __finally
+         {
+         chrt->Enabled = TRUE;
+         cs->Repaint();
+         }
       }
 }
 //------------------------------------------------------------------------------
@@ -339,7 +356,7 @@ void __fastcall TformSearchFree::tbtnSignalClick(TObject *Sender)
       chrt->BottomAxis->Title->Text = "Noise";
       cs->XValues->Value[0] = cs->XScreenToValue(chrt->ChartRect.Left + chrt->ChartRect.Width()/2);
       }
-   m_fFrequency   = (float)cs->XValues->Value[0];
+
    cs->Repaint();
    SetValues();
 }

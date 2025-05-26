@@ -136,17 +136,42 @@ bool MulipleInstanceAllowed()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// writes passed command line parameters to current AudioSpiki.ini
+/// writes passed command line parameters to global (!) AudioSpike.ini
 //------------------------------------------------------------------------------
 void WriteParamStrIni()
 {
-   TIniFile* pIni = new TIniFile(TformSpikeWare::GetSettingsPath() + "AudioSpike.ini");
+   TIniFile* pIni = new TIniFile(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "IPC.ini");
    try
       {
       pIni->WriteInteger("IPC", "ParamCount", ParamCount());
       int n;
       for (n = 0; n < ParamCount(); n++)
          pIni->WriteString("IPC", "Param"+IntToStr(n+1), ParamStr(n+1));
+      }
+   __finally
+      {
+      TRYDELETENULL(pIni);
+      }
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// read passed command line parameters from global (!) AudioSpike.ini
+//------------------------------------------------------------------------------
+void ReadParamStrIni(TStringList* psl)
+{
+   psl->Clear();
+   TIniFile* pIni = new TIniFile(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "IPC.ini");
+   try
+      {
+      int nParamCount = pIni->ReadInteger("IPC", "ParamCount", 0);
+      if (nParamCount > 0)
+         {
+         psl->Clear();
+         int n;
+         for (n = 0; n < nParamCount; n++)
+            psl->Add(pIni->ReadString("IPC", "Param" + IntToStr(n+1), ""));
+         }
       }
    __finally
       {

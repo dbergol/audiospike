@@ -50,6 +50,7 @@ void EnsureNewIniLocation();
 UnicodeString ReadSettingsName();
 bool MulipleInstanceAllowed();
 void WriteParamStrIni();
+void ReadParamStrIni(TStringList* psl);
 
 
 void ODSElapsed(DWORD &dw, UnicodeString us = "");

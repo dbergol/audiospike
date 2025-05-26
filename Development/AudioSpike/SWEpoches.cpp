@@ -743,15 +743,24 @@ void TSWEpoches::SoundProcTriggerTest(vvf &vvfBuffers)
       unsigned int   nNumSamples = (unsigned int)vvfBuffers[0].size();
       unsigned int n;
       float fValue;
+      double dMin, dMax;
       unsigned int nTriggerLength = (unsigned int)formSpikeWare->m_smp.m_nTriggerLength / (unsigned int)formSpikeWare->m_swsSpikes.m_dSampleRateDevider;
       for (n = m_nNumTriggerSamplesInNextBuffer; n < nNumSamples; n++)
          {
          fValue = fabs(vvfBuffers[nTriggerChannel][n]);
          if (fValue >= TRIGGER_THRESHOLD)
             {
-            m_dTriggerTestLastTriggerValue = (double)fValue;
             m_nTriggersDetected++;
-            // now get ampitude of this sample
+
+            // now get maximum amplitude of this buffer as maximum trigger amplitude!
+            dMin = fabs((double)vvfBuffers[nTriggerChannel].min());
+            dMax = (double)vvfBuffers[nTriggerChannel].max();
+
+            m_dTriggerTestLastTriggerValue = dMax;
+            if (dMin > dMax)
+               m_dTriggerTestLastTriggerValue = dMin;
+
+            // check for wrap around (samples to be neglected in next buffer)
             n += nTriggerLength;
             if (n > nNumSamples)
                m_nNumTriggerSamplesInNextBuffer = n - nNumSamples;
@@ -764,7 +773,6 @@ void TSWEpoches::SoundProcTriggerTest(vvf &vvfBuffers)
       {
       LeaveCriticalSection(&m_csReset);
       }
-
 }
 //------------------------------------------------------------------------------
 

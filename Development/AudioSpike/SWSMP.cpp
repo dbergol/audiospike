@@ -88,6 +88,7 @@ SWSMP::SWSMP()
    m_nEqualisationLength = -1;
    m_nEqualisationMethod = AW_SMP_EQ_FFT;
    m_bShowFFTPlugins = false;
+   m_bApplyFinalOutputFakeFilter = false;
 
    m_bStopping    = false;
    m_nCalibrate   = 0;
@@ -1096,7 +1097,8 @@ bool SWSMP::Init(int nMode)
       us += "datanotifytrack=" + IntToStr(nNotifyChannel) + ";";
       if (!formSpikeWare->m_pIni->ReadBool("Debug", "RecSave", false))
          us += "recfiledisable=1;";
-      if (formSpikeWare->m_pIni->ReadBool(formSpikeWare->m_pIni->ReadString("Debug", "Fake", "Fake"), "SoundCopyOutToIn", false))
+
+      if (formSpikeWare->m_pIni->ReadBool("Debug", "SoundCopyOutToIn", false))
          {
          MessageBox(0, "SoundCopyOutToIn ACTIVE", "Warning", MB_ICONWARNING);
          us += "copyout2in=1;";
@@ -1304,24 +1306,37 @@ bool  SWSMP::VSTLoad(int nChannel, UnicodeString usEqualisation, int nPos, bool 
          throw Exception("Error loading Hi-Pass filter");
 
       // for debugging: load a "final" plugin, always as visual plugin
-      /*
-      UnicodeString us = "filename=" + IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "HtVstEqVisAS.dll;";
-      us += "input=" + IntToStr(nChannel) + ";";
-      us += "output=" + IntToStr(nChannel) + ";";
-      us += "position=" + IntToStr(0) + ";";
-      us += "type=final;";
-
-      if (!Command("vstload", us))
-         return false;
-
-         us = "parameter=fftlen;";
+      if (m_bApplyFinalOutputFakeFilter)
+         {
+         MessageBox(0, "Final Fake Outputfilter ACTIVE", "Warning", MB_ICONWARNING);
+         UnicodeString us = "filename=" + IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "HtVstEqVisAS.dll;";
          us += "input=" + IntToStr(nChannel) + ";";
-         us += "value=" + DoubleToStr((Log2((double)m_nEqFFTLen)-8.0) / 8.0) + ";";
+         us += "output=" + IntToStr(nChannel) + ";";
          us += "position=" + IntToStr(0) + ";";
          us += "type=final;";
-         if (!Command("vstparam", us))
+
+         if (!Command("vstload", us))
             return false;
-      */
+
+            us = "parameter=fftlen;";
+            us += "input=" + IntToStr(nChannel) + ";";
+            us += "value=" + DoubleToStr((Log2((double)m_nEqFFTLen)-8.0) / 8.0) + ";";
+            us += "position=" + IntToStr(0) + ";";
+            us += "type=final;";
+            if (!Command("vstparam", us))
+               return false;
+
+         if (!usEqualisation.IsEmpty())
+            {
+            us = "programname=" + TformSpikeWare::GetSettingsPath() + "filters.ini##Fake;";
+            us += "input=" + IntToStr(nChannel) + ";";
+            us += "position=" + IntToStr(0) + ";";
+            us += "type=final;";
+            // return
+            if (!Command("vstprogramname", us))
+               return false;
+            }
+         }
       }
 
    bool bFFT = (m_nEqualisationMethod == AW_SMP_EQ_FFT) || nPos == PLUGIN_POS_CUT;
@@ -1743,7 +1758,7 @@ bool SWSMP::PrepareTriggerTest()
 {
    try
       {
-
+      formSpikeWare->m_sweEpoches.m_dTriggerTestLastTriggerValue = 0.0;
       // create the trigger
       m_vadTrigger.resize((unsigned int)floor(formSpikeWare->m_swsStimuli.m_dDeviceSampleRate));
       m_vadTrigger = 0.0;
@@ -1856,7 +1871,7 @@ bool SWSMP::SetMonitor(int nChannel)
 //------------------------------------------------------------------------------
 /// reads audio settings from inifile
 //------------------------------------------------------------------------------
-bool SWSMP::ReadSettings(bool bShowError, bool bForce)
+bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
 {
 
    if (!bForce && m_bSettingsRead)
@@ -1866,239 +1881,227 @@ bool SWSMP::ReadSettings(bool bShowError, bool bForce)
    AnsiString asReturn;
    if (!Command("getdrivers", "", true, &asReturn))
       return false;
+   TStringList *psl = new TStringList();
    try
       {
-      m_usLog                 = formSpikeWare->m_pIni->ReadString("Debug", "Logfile", "");
-      m_bShowFFTPlugins       = formSpikeWare->m_pIni->ReadBool("Debug", "ShowFFTPlugins", false);
-      m_bFreeSearchContinuous = formSpikeWare->m_pIni->ReadBool("Debug", "FreeSearchContinuous", false);
-      m_bShowTracks = formSpikeWare->m_pIni->ReadBool("Debug", "ShowTracks", false);
-      m_bShowMixer  = formSpikeWare->m_pIni->ReadBool("Debug", "ShowMixer", false);
-      m_usIniSection = formSpikeWare->m_pIni->ReadString(formSpikeWare->m_pIni->ReadString("Debug", "Fake", "Fake"), "SoundSettings", "SoundSettings");
-      m_nFakeTotalRecOffset   = formSpikeWare->m_pIni->ReadInteger(formSpikeWare->m_pIni->ReadString("Debug", "Fake", "Fake"), "TotalRecOffset", 0);
-
-      m_bSaveProbeMics                 = formSpikeWare->m_pIni->ReadBool("Settings", "SaveProbeMic", false);
-      m_fDefaultSampleRate             = formSpikeWare->m_pIni->ReadInteger("Settings", "SampleRateDefault", 44100);
-      m_fDefaultSampleRateDevider      = formSpikeWare->m_pIni->ReadInteger("Settings", "SampleRateDeviderDefault", 1.0);
-      m_nFreeSearchStimLengthMs        = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchStimLengthMs", 150);
-      m_nFreeSearchPreStimLengthMs     = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchPreStimLengthMs", 20);
-      m_nFreeSearchRepetitionPeriodMs  = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchRepetitionPeriodMs", 350);
-      m_nFreeSearchRampLengthMs        = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchRampLengthMs", 5);
-      if (  m_nFreeSearchStimLengthMs        <= 0
-         || m_nFreeSearchPreStimLengthMs     <  0
-         || m_nFreeSearchRepetitionPeriodMs  <= 0
-         || m_nFreeSearchRampLengthMs        <  0
-         )
-         throw Exception("Free search parameters invalid (<= 0)");
-
-      m_fTriggerValue                  = 1.0f;
-      int nTriggerAtt                  = formSpikeWare->m_pIni->ReadInteger("Settings", "TriggerAttenuation", 0);
-      if (nTriggerAtt < 0)
-         m_fTriggerValue               = (float)dBToFactor(nTriggerAtt);
-
-      m_bAllowEqDiffLengths            = formSpikeWare->m_pIni->ReadBool("Settings", "AllowEqDiffLengths", false);
-      if (formSpikeWare->IsInSitu())
-         m_nEqualisationMethod         = AW_SMP_EQ_FFT;
-      else
-         m_nEqualisationMethod         = formSpikeWare->m_pIni->ReadInteger("Settings", "EqualisationMethod", AW_SMP_EQ_FFT);
-
-      m_nEqFFTLen                      = formSpikeWare->m_pIni->ReadInteger("Settings", "FFTLen", FFTLEN_DEFAULT);
-
-      m_dTriggerLatency = IniReadDouble(formSpikeWare->m_pIni, "Settings", "TriggerLatency", 0.0);
-
-
-      ParseValues(m_pslDrivers, GetStringValueFromSMPReturn(asReturn, "driver"));
-
-      if (!m_pslDrivers->Count)
-         throw Exception("No ASIO sound drivers found in the system");
-
-      UnicodeString usDriver = formSpikeWare->m_pIni->ReadString(m_usIniSection, "Driver", "");
-      if (usDriver == "")
-         throw Exception("No sound driver selected in settings");
-      if (m_pslDrivers->IndexOf(usDriver) < 0)
-         throw Exception("Selected sound driver not found in the system");
-
-      
-
-      // note: SetDriver reinitializes ALL Channels thus resets all channel types as well
-      SetDriver(usDriver);
-
-      #ifdef CHKCHNLS
-      if (!GetChannels(m_usDriver, m_pslChannelsIn, m_pslChannelsOut))
-         return false;
-      #endif
-
-      if (!m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT) || !m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_IN))
-         throw Exception("Selected sound driver has no audio channels. Maybe device is not connected or switched off.");
-
-
-
-      // from here on we want to (try to) continue if NO error to be displayed: used
-      // when settings are invoked: we want to read as much as possible, even if some settings
-      // are invalid. To be sure we return false in this case....
-
-      #define THROWCOND(us) \
-         { \
-         bSettingsValid = false;\
-         if (bShowError) throw Exception(us);\
-         }
-
-      // read out channels:
-      std::vector<int > viChannelsOutSettings;
-      UnicodeString usChannelsOutField = formSpikeWare->IsInSitu() ? "ChannelsOutInSitu" : "ChannelsOut";
-      ParseIntValues(viChannelsOutSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, usChannelsOutField, ""), usChannelsOutField);
-      if (!viChannelsOutSettings.size())
-         THROWCOND("No output channels set in settings");
-      m_swcHWChannels.SetOutputs(viChannelsOutSettings);
-
-      std::vector<int > viChannelsOutRawSettings;
-      UnicodeString usChannelsOutRawField = formSpikeWare->IsInSitu() ? "ChannelsOutRawInSitu" : "ChannelsOutRaw";
-      ParseIntValues(viChannelsOutRawSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, usChannelsOutRawField, ""), usChannelsOutRawField);
-      m_swcHWChannels.SetOutputsRaw(viChannelsOutRawSettings);
-
-
-      std::vector<int > viChannelsInSettings;
-      ParseIntValues(viChannelsInSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, "ChannelsIn", ""), "ChannelsIn");
-      if (!viChannelsInSettings.size())
-         THROWCOND("No input channels set in settings");
-      m_swcHWChannels.SetElectrodes(viChannelsInSettings);
-
-      int nTriggerChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerOut", -1);
-      if (nTriggerChannelOut < 0)
-         THROWCOND("No trigger out channel set in settings");
-      if (m_swcHWChannels.GetChannelType((unsigned int)nTriggerChannelOut, SWSMPHWCDIR_OUT) != AS_SMP_NONE)
-         THROWCOND("Invalid trigger out channel set in settings: channel is used as output channel as well");
-      m_swcHWChannels.SetTrigger(nTriggerChannelOut, SWSMPHWCDIR_OUT);
-
-
-
-      int nMonitorChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MonitorOut", -1);
-      if (nMonitorChannelOut >= 0 &&m_swcHWChannels.GetChannelType((unsigned int)nMonitorChannelOut, SWSMPHWCDIR_OUT) != AS_SMP_NONE)
-         THROWCOND("Invalid monitor channel set in settings: channel is used as output channel or trigger output as well");
-      m_swcHWChannels.SetMonitor(nMonitorChannelOut);
-
-
-      int nTriggerChannelIn  = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerIn", -1);
-      if (nTriggerChannelIn < 0)
-         THROWCOND("No trigger in channel set in settings");
-      if (m_swcHWChannels.GetChannelType((unsigned int)nTriggerChannelIn, SWSMPHWCDIR_IN) != AS_SMP_NONE)
-         THROWCOND("Invalid trigger in channel set in settings: channel is used as electrode channel as well");
-      m_swcHWChannels.SetTrigger(nTriggerChannelIn, SWSMPHWCDIR_IN);
-
-      int nMicChannelIn      = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MicIn", -1);
-      if (nMicChannelIn >= 0 && m_swcHWChannels.GetChannelType((unsigned int)nMicChannelIn, SWSMPHWCDIR_IN) != AS_SMP_NONE)
-         THROWCOND("Invalid reference microphone channel set in settings: channel is used as electrode channel or trigger in as well");
-      m_swcHWChannels.SetRefMic(nMicChannelIn);
-
-
-
-
-
-      #ifdef CHKCHNLS
-      // Compare AAAALLLL channels old vs new
-      m_nTriggerChannelIn  = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerIn", -1);
-      m_nTriggerChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerOut", -1);
-      m_nMonitorChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MonitorOut", -1);
-      m_nMicChannelIn      = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MicIn", -1);
-
-      ParseIntValues(m_viChannelsOutSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, usChannelsOutField, ""), usChannelsOutField);
-      ParseIntValues(m_viChannelsInSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, "ChannelsIn", ""), "ChannelsIn");
-
-      if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_IN) != m_nTriggerChannelIn)
-         ShowMessage("error A "+ UnicodeString( __FUNC__));
-      if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT) != m_nTriggerChannelOut)
-         ShowMessage("error B "+ UnicodeString( __FUNC__));
-      if (m_swcHWChannels.GetMonitor() != m_nMonitorChannelOut)
-         ShowMessage("error C "+ UnicodeString( __FUNC__));
-      if (m_swcHWChannels.GetRefMic() != m_nMicChannelIn)
-         ShowMessage("error D "+ UnicodeString( __FUNC__));
-
-      std::vector<int > viChannelsOutSettings2 = m_swcHWChannels.GetOutputs();
-      if (viChannelsOutSettings2.size() != m_viChannelsOutSettings.size())
-         ShowMessage("error O1 "+ UnicodeString( __FUNC__));
-      else
+      psl->Add("At least one invalid sound setting was detected:");
+      try
          {
-         for (unsigned int x = 0; x < viChannelsOutSettings2.size();x++)
-            {
-            if (viChannelsOutSettings2[x] !=  m_viChannelsOutSettings[x])
-               ShowMessage("error O2 "+ UnicodeString( __FUNC__));
+         m_usLog                 = formSpikeWare->m_pIni->ReadString("Debug", "Logfile", "");
+         m_bShowFFTPlugins       = formSpikeWare->m_pIni->ReadBool("Debug", "ShowFFTPlugins", false);
+         m_bApplyFinalOutputFakeFilter = formSpikeWare->m_pIni->ReadBool("Debug", "ApplyFinalOutputFakeFilter", false);
+         m_bFreeSearchContinuous = formSpikeWare->m_pIni->ReadBool("Debug", "FreeSearchContinuous", false);
+         m_bShowTracks = formSpikeWare->m_pIni->ReadBool("Debug", "ShowTracks", false);
+         m_bShowMixer  = formSpikeWare->m_pIni->ReadBool("Debug", "ShowMixer", false);
+         m_usIniSection = formSpikeWare->m_pIni->ReadString(formSpikeWare->m_pIni->ReadString("Debug", "Fake", "Fake"), "SoundSettings", "SoundSettings");
+         m_nFakeTotalRecOffset   = formSpikeWare->m_pIni->ReadInteger(formSpikeWare->m_pIni->ReadString("Debug", "Fake", "Fake"), "TotalRecOffset", 0);
+
+         m_bSaveProbeMics                 = formSpikeWare->m_pIni->ReadBool("Settings", "SaveProbeMic", false);
+         m_fDefaultSampleRate             = formSpikeWare->m_pIni->ReadInteger("Settings", "SampleRateDefault", 44100);
+         m_fDefaultSampleRateDevider      = formSpikeWare->m_pIni->ReadInteger("Settings", "SampleRateDeviderDefault", 1.0);
+         m_nFreeSearchStimLengthMs        = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchStimLengthMs", 150);
+         m_nFreeSearchPreStimLengthMs     = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchPreStimLengthMs", 20);
+         m_nFreeSearchRepetitionPeriodMs  = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchRepetitionPeriodMs", 350);
+         m_nFreeSearchRampLengthMs        = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchRampLengthMs", 5);
+         if (  m_nFreeSearchStimLengthMs        <= 0
+            || m_nFreeSearchPreStimLengthMs     <  0
+            || m_nFreeSearchRepetitionPeriodMs  <= 0
+            || m_nFreeSearchRampLengthMs        <  0
+            )
+            throw Exception("Free search parameters invalid (<= 0)");
+
+         m_fTriggerValue                  = 1.0f;
+         int nTriggerAtt                  = formSpikeWare->m_pIni->ReadInteger("Settings", "TriggerAttenuation", 0);
+         if (nTriggerAtt < 0)
+            m_fTriggerValue               = (float)dBToFactor(nTriggerAtt);
+
+         m_bAllowEqDiffLengths            = formSpikeWare->m_pIni->ReadBool("Settings", "AllowEqDiffLengths", false);
+         if (formSpikeWare->IsInSitu())
+            m_nEqualisationMethod         = AW_SMP_EQ_FFT;
+         else
+            m_nEqualisationMethod         = formSpikeWare->m_pIni->ReadInteger("Settings", "EqualisationMethod", AW_SMP_EQ_FFT);
+
+         m_nEqFFTLen                      = formSpikeWare->m_pIni->ReadInteger("Settings", "FFTLen", FFTLEN_DEFAULT);
+
+         m_dTriggerLatency = IniReadDouble(formSpikeWare->m_pIni, "Settings", "TriggerLatency", 0.0);
+
+
+         ParseValues(m_pslDrivers, GetStringValueFromSMPReturn(asReturn, "driver"));
+
+         if (!m_pslDrivers->Count)
+            throw Exception("No ASIO sound drivers found in the system");
+
+         UnicodeString usDriver = formSpikeWare->m_pIni->ReadString(m_usIniSection, "Driver", "");
+         if (usDriver == "")
+            throw Exception("No sound driver selected in settings");
+         if (m_pslDrivers->IndexOf(usDriver) < 0)
+            throw Exception("Selected sound driver not found in the system");
+
+         // note: SetDriver reinitializes ALL Channels thus resets all channel types as well
+         SetDriver(usDriver);
+
+         #ifdef CHKCHNLS
+         if (!GetChannels(m_usDriver, m_pslChannelsIn, m_pslChannelsOut))
+            return false;
+         #endif
+
+         if (!m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT) || !m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_IN))
+            throw Exception("Selected sound driver has no audio channels. Maybe device is not connected or switched off.");
+
+
+
+         // from here on we want to (try to) continue if NO error to be displayed: used
+         // when settings are invoked: we want to read as much as possible, even if some settings
+         // are invalid. To be sure we return false in this case....
+         #define THROWCOND(us) \
+            { \
+            bSettingsValid = false;\
+            if (bAbortOnError)\
+               throw Exception(us);\
+            else\
+               psl->Add(us);\
             }
-         }
-      std::vector<int > viChannelsInSettings2 = m_swcHWChannels.GetElectrodes();
-      if (viChannelsInSettings2.size() != m_viChannelsInSettings.size())
-         ShowMessage("error I1 "+ UnicodeString( __FUNC__));
-      else
-         {
-         for (unsigned int x = 0; x < viChannelsInSettings2.size();x++)
+
+         // read out channels:
+         std::vector<int > viChannelsOutSettings;
+         UnicodeString usChannelsOutField = formSpikeWare->IsInSitu() ? "ChannelsOutInSitu" : "ChannelsOut";
+         ParseIntValues(viChannelsOutSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, usChannelsOutField, ""), usChannelsOutField);
+         if (!viChannelsOutSettings.size())
+            THROWCOND("No output channels set in settings");
+         m_swcHWChannels.SetOutputs(viChannelsOutSettings);
+
+         std::vector<int > viChannelsOutRawSettings;
+         UnicodeString usChannelsOutRawField = formSpikeWare->IsInSitu() ? "ChannelsOutRawInSitu" : "ChannelsOutRaw";
+         ParseIntValues(viChannelsOutRawSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, usChannelsOutRawField, ""), usChannelsOutRawField);
+         m_swcHWChannels.SetOutputsRaw(viChannelsOutRawSettings);
+
+         std::vector<int > viChannelsInSettings;
+         ParseIntValues(viChannelsInSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, "ChannelsIn", ""), "ChannelsIn");
+         if (!viChannelsInSettings.size())
+            THROWCOND("No input channels set in settings");
+         m_swcHWChannels.SetElectrodes(viChannelsInSettings);
+
+         int nTriggerChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerOut", -1);
+         if (nTriggerChannelOut < 0)
+            THROWCOND("No trigger out channel set in settings");
+         if (m_swcHWChannels.GetChannelType((unsigned int)nTriggerChannelOut, SWSMPHWCDIR_OUT) != AS_SMP_NONE)
+            THROWCOND("Invalid trigger out channel set in settings: channel is used as output channel as well");
+         m_swcHWChannels.SetTrigger(nTriggerChannelOut, SWSMPHWCDIR_OUT);
+
+         int nMonitorChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MonitorOut", -1);
+         if (nMonitorChannelOut >= 0 &&m_swcHWChannels.GetChannelType((unsigned int)nMonitorChannelOut, SWSMPHWCDIR_OUT) != AS_SMP_NONE)
+            THROWCOND("Invalid monitor channel set in settings: channel is used as output channel or trigger output as well");
+         m_swcHWChannels.SetMonitor(nMonitorChannelOut);
+
+
+         int nTriggerChannelIn  = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerIn", -1);
+         if (nTriggerChannelIn < 0)
+            THROWCOND("No trigger in channel set in settings");
+         if (m_swcHWChannels.GetChannelType((unsigned int)nTriggerChannelIn, SWSMPHWCDIR_IN) != AS_SMP_NONE)
+            THROWCOND("Invalid trigger in channel set in settings: channel is used as electrode channel as well");
+         m_swcHWChannels.SetTrigger(nTriggerChannelIn, SWSMPHWCDIR_IN);
+
+         int nMicChannelIn      = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MicIn", -1);
+         if (nMicChannelIn >= 0 && m_swcHWChannels.GetChannelType((unsigned int)nMicChannelIn, SWSMPHWCDIR_IN) != AS_SMP_NONE)
+            THROWCOND("Invalid reference microphone channel set in settings: channel is used as electrode channel or trigger in as well");
+         m_swcHWChannels.SetRefMic(nMicChannelIn);
+
+
+         #ifdef CHKCHNLS
+         // Compare AAAALLLL channels old vs new
+         m_nTriggerChannelIn  = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerIn", -1);
+         m_nTriggerChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerOut", -1);
+         m_nMonitorChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MonitorOut", -1);
+         m_nMicChannelIn      = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MicIn", -1);
+
+         ParseIntValues(m_viChannelsOutSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, usChannelsOutField, ""), usChannelsOutField);
+         ParseIntValues(m_viChannelsInSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, "ChannelsIn", ""), "ChannelsIn");
+
+         if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_IN) != m_nTriggerChannelIn)
+            ShowMessage("error A "+ UnicodeString( __FUNC__));
+         if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT) != m_nTriggerChannelOut)
+            ShowMessage("error B "+ UnicodeString( __FUNC__));
+         if (m_swcHWChannels.GetMonitor() != m_nMonitorChannelOut)
+            ShowMessage("error C "+ UnicodeString( __FUNC__));
+         if (m_swcHWChannels.GetRefMic() != m_nMicChannelIn)
+            ShowMessage("error D "+ UnicodeString( __FUNC__));
+
+         std::vector<int > viChannelsOutSettings2 = m_swcHWChannels.GetOutputs();
+         if (viChannelsOutSettings2.size() != m_viChannelsOutSettings.size())
+            ShowMessage("error O1 "+ UnicodeString( __FUNC__));
+         else
             {
-            if (viChannelsInSettings2[x] !=  m_viChannelsInSettings[x])
-               ShowMessage("error I2 "+ UnicodeString( __FUNC__));
-            }
-         }
-
-      #endif
-
-
-      // for insitu: check, that an insitu channel is available for every selected output!
-      if (formSpikeWare->IsInSitu() && viChannelsOutSettings.size())
-         {
-
-         
-         std::vector<int > vi;
-         unsigned int n, m, nChannel;
-         int nChannelInSitu;
-         for (n = 0; n < viChannelsOutSettings.size(); n++)
-            {
-            // for raw output channel no probe mic is required
-            if (m_swcHWChannels.IsOutputRaw(n))
-               continue;
-
-            
-
-            nChannelInSitu = GetInSituInputChannel(m_swcHWChannels.GetChannelName((unsigned int)viChannelsOutSettings[n], SWSMPHWCDIR_OUT));
-            if (nChannelInSitu == -1)
-               THROWCOND("No input channel set in settings for at least one in-situ output channel!");
-            nChannel = m_swcHWChannels.m_vvswcChannels[SWSMPHWCDIR_IN][(unsigned int)nChannelInSitu].m_nHWIndex;
-
-            if ( std::find(vi.begin(), vi.end(), nChannel) != vi.end())
-               THROWCOND("Identical in-situ input channel used for multiple outputs in settings");
-
-            #ifdef CHKCHNLS
-//            if (bShowError && m_swcHWChannels.GetChannelName((unsigned int)viChannelsOutSettings[n], SWSMPHWCDIR_OUT) != m_pslChannelsIn->Strings[m_viChannelsOutSettings[n]])
-//               ShowMessage("error insitu "+ UnicodeString( __FUNC__));
-            #endif
-
-            #ifdef CHKCHNLS
-            /*
-            ShowMessage(GetInSituInputChannel(m_swcHWChannels.GetChannelName((unsigned int)viChannelsOutSettings[n], SWSMPHWCDIR_OUT)));
-            ShowMessage(m_pslChannelsIn->Strings[m_viChannelsOutSettings[n]]);
-            if (GetInSituInputChannel(m_swcHWChannels.GetChannelName((unsigned int)viChannelsOutSettings[n], SWSMPHWCDIR_OUT)) != m_pslChannelsIn->Strings[m_viChannelsOutSettings[n]])
+            for (unsigned int x = 0; x < viChannelsOutSettings2.size();x++)
                {
-               UnicodeString usError;
-//               usError.printf(L"error insitu %hs\n%s\n%s", __FUNC__,
-//                  GetInSituInputChannel(m_swcHWChannels.GetChannelName((unsigned int)viChannelsOutSettings[n], SWSMPHWCDIR_OUT)).w_str(),
-//                  m_pslChannelsIn->Strings[m_viChannelsOutSettings[n]].w_str());
-                                    
-               ShowMessage("error a");
+               if (viChannelsOutSettings2[x] !=  m_viChannelsOutSettings[x])
+                  ShowMessage("error O2 "+ UnicodeString( __FUNC__));
                }
-            */
-            #endif
-
-            vi.push_back((int)nChannel);
             }
-         m_swcHWChannels.SetProbeMics(vi);
+         std::vector<int > viChannelsInSettings2 = m_swcHWChannels.GetElectrodes();
+         if (viChannelsInSettings2.size() != m_viChannelsInSettings.size())
+            ShowMessage("error I1 "+ UnicodeString( __FUNC__));
+         else
+            {
+            for (unsigned int x = 0; x < viChannelsInSettings2.size();x++)
+               {
+               if (viChannelsInSettings2[x] !=  m_viChannelsInSettings[x])
+                  ShowMessage("error I2 "+ UnicodeString( __FUNC__));
+               }
+            }
+
+         #endif
+
+
+         // for insitu: check, that an insitu channel is available for every selected output!
+         if (formSpikeWare->IsInSitu() && viChannelsOutSettings.size())
+            {
+            std::vector<int > vi;
+            unsigned int n, m, nChannel;
+            int nChannelInSitu;
+            for (n = 0; n < viChannelsOutSettings.size(); n++)
+               {
+               // for raw output channel no probe mic is required
+               if (m_swcHWChannels.IsOutputRaw(n))
+                  continue;
+
+               nChannelInSitu = GetInSituInputChannel(m_swcHWChannels.GetChannelName((unsigned int)viChannelsOutSettings[n], SWSMPHWCDIR_OUT));
+               if (nChannelInSitu == -1)
+                  {
+                  THROWCOND("No input channel set in settings for at least one in-situ output channel!");
+                  }
+               else
+                  {
+                  nChannel = m_swcHWChannels.m_vvswcChannels[SWSMPHWCDIR_IN][(unsigned int)nChannelInSitu].m_nHWIndex;
+                  if ( std::find(vi.begin(), vi.end(), nChannel) != vi.end())
+                     THROWCOND("Identical in-situ input channel used for multiple outputs in settings");
+
+                  vi.push_back((int)nChannel);
+                  }
+               }
+
+            m_swcHWChannels.SetProbeMics(vi);
+            }
+
+
+         if  (!bAbortOnError)
+            {
+            if (!bSettingsValid)
+               formSpikeWare->SWErrorBox(psl->Text);
+            return bSettingsValid;
+            }
          }
-
-
-      if  (!bShowError)
-         return bSettingsValid;
+      catch (Exception &e)
+         {
+         if (bAbortOnError)
+            formSpikeWare->SWErrorBox(e.Message);
+         else
+            OutputDebugStringW(e.Message.w_str());
+         return false;
+         }
       }
-   catch (Exception &e)
+   __finally
       {
-      if (bShowError)
-         formSpikeWare->SWErrorBox(e.Message);
-      else
-         OutputDebugStringW(e.Message.w_str());
-      return false;
+      TRYDELETENULL(psl);
       }
    m_bSettingsRead = true;
    return true;

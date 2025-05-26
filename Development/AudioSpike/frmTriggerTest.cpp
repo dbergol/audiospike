@@ -109,7 +109,10 @@ void __fastcall TformTriggerTest::TimerTimer(TObject *Sender)
       m_nTriggersDetected = formSpikeWare->m_sweEpoches.m_nTriggersDetected;
       lv->Items->Item[3]->SubItems->Strings[0] = IntToStr(m_nTriggersDetected);
       UnicodeString us;
-      us.printf(L"%.2f", formSpikeWare->m_sweEpoches.m_dTriggerTestLastTriggerValue);
+      us.printf(  L"%.2lf (%.1lf dB)",
+                  formSpikeWare->m_sweEpoches.m_dTriggerTestLastTriggerValue,
+                  FactorTodB(formSpikeWare->m_sweEpoches.m_dTriggerTestLastTriggerValue)
+                  );
       lv->Items->Item[4]->SubItems->Strings[0] = us;
       
       }

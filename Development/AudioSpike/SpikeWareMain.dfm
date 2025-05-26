@@ -25,6 +25,7 @@ object formSpikeWare: TformSpikeWare
     ButtonWidth = 33
     Caption = 'tb'
     DisabledImages = ild
+    GradientEndColor = 14079702
     Images = il
     Indent = 4
     List = True

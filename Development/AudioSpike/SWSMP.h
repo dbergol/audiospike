@@ -184,6 +184,7 @@ class SWSMP
       int                           m_nEqFFTLen;
       bool                          m_bAllowEqDiffLengths;
       bool                          m_bShowFFTPlugins;
+      bool                          m_bApplyFinalOutputFakeFilter;
 
 
       // calibration members

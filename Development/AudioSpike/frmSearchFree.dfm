@@ -80,8 +80,6 @@ inherited formSearchFree: TformSearchFree
     Color = clWhite
     TabOrder = 0
     OnMouseDown = chrtMouseDown
-    ExplicitTop = 31
-    ExplicitHeight = 361
     DesignSize = (
       716
       360)

@@ -96,8 +96,6 @@ CHtVSTEq::CHtVSTEq (audioMasterCallback audioMaster)
       m_vafFilterBorders[0] = 100.0f;
       m_vafFilterBorders[1] = 0.75f*sampleRate/2.0f;
 
-      InitFilter();
-
 
       #ifdef EXTPROCS
       sm_peq = this;
@@ -105,6 +103,7 @@ CHtVSTEq::CHtVSTEq (audioMasterCallback audioMaster)
 
       // set 'valid flag' (used in _main)
       m_bIsValid = true;
+
       }
    catch (...)
       {
@@ -141,6 +140,8 @@ void CHtVSTEq::setSampleRate (float sampleRate)
 {
    AudioEffectX::setSampleRate (sampleRate);
    m_vafFilterBorders[1] = 0.75f*sampleRate/2.0f;
+
+   EnsureFilter();
 
    #ifdef VISUAL_PLUGIN
    m_pfrmVisual->Initialize(m_nFFTLen, sampleRate);
@@ -199,6 +200,7 @@ void CHtVSTEq::getProgramName (char *name)
 #pragma argsused
 void CHtVSTEq::setParameter (VstInt32 index, float value)
 {
+   bool b;
    switch (index)
       {
       case 0:  if (!m_pOLA)
@@ -209,7 +211,10 @@ void CHtVSTEq::setParameter (VstInt32 index, float value)
                break;
       case 1:  m_fVisible = value;
                #ifdef VISUAL_PLUGIN
-               m_pfrmVisual->Visible = (m_fVisible > 0.5f);
+               b = (m_fVisible > 0.5f);
+               if (b)
+                  EnsureFilter();
+               m_pfrmVisual->Visible = b;
                #endif
                break;
       case 2:  m_fEnabled = value; break;
@@ -309,6 +314,7 @@ bool CHtVSTEq::getVendorString (char* text)
 //--------------------------------------------------------------------------
 VstInt32 CHtVSTEq::startProcess ()
 {
+   EnsureFilter();
    InitOLA();
    return 0;
 }
@@ -409,6 +415,16 @@ void CHtVSTEq::processReplacing (float **inputs, float **outputs, VstInt32 sampl
 //--------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------
+/// calls InitFilter() if it was never called before
+//--------------------------------------------------------------------------
+void CHtVSTEq::EnsureFilter()
+{
+   if (!m_vafFilter.size())
+      InitFilter();
+}
+//--------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------
 /// initialize data
 //--------------------------------------------------------------------------
 void CHtVSTEq::InitFilter()
@@ -420,7 +436,6 @@ void CHtVSTEq::InitFilter()
    m_vafFilter.resize(m_nFFTLen/2);
    // start with identity
    m_vafFilter = 1.0f;
-
 
 
    // alloc buffer for filter values and initialize as real filter with ones
@@ -488,10 +503,10 @@ void CHtVSTEq::SpecProcessCallback(vvac & vvacSpectrum)
 
       //calculate new spectrum
       unsigned int n;
-      for (n = 0; n < m_vafFilter.size(); n++)
-         vvacSpectrum[0][n] *= m_vafFilter[n];
-      // last bin same factor than last but one
-      vvacSpectrum[0][vvacSpectrum[0].size()-1] *= m_vafFilter[m_vafFilter.size()-1];
+      // first bin same factor than second
+      vvacSpectrum[0][0] *= m_vafFilter[0];
+      for (n = 1; n < vvacSpectrum[0].size(); n++)
+         vvacSpectrum[0][n] *= m_vafFilter[n-1];
 
 
       #ifdef VISUAL_PLUGIN

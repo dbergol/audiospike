@@ -53,6 +53,8 @@ __fastcall TfrmEqInput::TfrmEqInput()
    PreSpecSeriesL->XValues->Order   = loAscending;
    PostSpecSeriesL->XValues->Order  = loAscending;
    Chart->AllowZoom = true;
+   m_nFFTLen = 0;
+   m_fSampleRate = 0.0f;
 }
 //------------------------------------------------------------------------------
 
@@ -99,6 +101,13 @@ void __fastcall TfrmEqInput::FormShow(TObject *Sender)
 //------------------------------------------------------------------------------
 void __fastcall TfrmEqInput::Initialize(unsigned int nFFTLen, float fSampleRate)
 {
+   // (re-)initialize only if properties have changed
+   if (m_nFFTLen == nFFTLen && (int)m_fSampleRate == (int)fSampleRate)
+      return;
+
+   m_nFFTLen = nFFTLen;
+   m_fSampleRate = fSampleRate;
+
    float f4BinSize  = fSampleRate / (float)nFFTLen;
    PreSpecSeriesL->Clear();
    PostSpecSeriesL->Clear();
