@@ -99,6 +99,9 @@ UnicodeString TformSpikeWare::GetSettingsPath()
 //------------------------------------------------------------------------------
 __fastcall TformSpikeWare::TformSpikeWare(TComponent* Owner)
    :  TForm(Owner),
+      m_bFormsCreated(false),
+      m_bForceReloadMeasurement(false),
+      m_nLastLoadMode(SWLM_NONE),
       m_gs(SWGS_NONE),
       m_pformSearchFree(NULL),
       m_pformBatch(NULL),
@@ -780,15 +783,39 @@ bool TformSpikeWare::LoadMeasurementResult(UnicodeString us)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// Reloads measurement if necessary
+//------------------------------------------------------------------------------
+bool TformSpikeWare::CheckReloadMeasurement()
+{
+   bool bReturn = true;
+   if (m_nLastLoadMode > SWLM_NONE && m_bForceReloadMeasurement)
+      {
+      bReturn = LoadMeasurement(xml->FileName, m_nLastLoadMode);
+      if (bReturn)
+         {
+         if (m_nLastLoadMode == SWLM_TEMPLATE)
+            SetGUIStatus(SWLM_TEMPLATE);
+         else
+            SetGUIStatus(SWGS_RESULTLOADED);
+         }
+      }
+   return bReturn;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 /// loads XMLs of diffeent types
 //------------------------------------------------------------------------------
 bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
 {
    if (!FormsCreated())
       return false;
+
    bool bReturn = false;
    m_pformEpoches->EnableEpocheScrolling(false);
    m_pformEpoches->tbEpoches->Tag      = 0;
+   m_nLastLoadMode = nMode;
+   m_bForceReloadMeasurement = false;
 
    m_pformSpikes->cbPlotEpocheSpikesOnly->Enabled  = false;
    m_pformSpikes->cbPlotEpocheSpikesOnly->Checked  = false;
@@ -878,7 +905,6 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
             throw Exception("'SampleRate' missing or invalid in 'Settings'");
          if (!TryStrToDouble(GetXMLValue(xmlSettings, "SampleRateDevider"), dSampleRateDevider))
             dSampleRateDevider = (double)m_smp.m_fDefaultSampleRateDevider;
-
 
 
          m_swsSpikes.SetSampleRate(dSampleRate, dSampleRateDevider);
@@ -1398,8 +1424,18 @@ bool TformSpikeWare::InitFreeSearch()
       if (!m_smp.ReadSettings())
          return bReturn;
 
+      #pragma clang diagnostic push
+      #pragma clang diagnostic ignored "-Wfloat-equal"
+      // now store flag if we have to reload a measurement in RunMeasurement later
+      if (  m_swsSpikes.GetSampleRate() != (double)m_smp.m_fDefaultSampleRate
+         || m_swsSpikes.m_dSampleRateDevider != 1.0
+         )
+         m_bForceReloadMeasurement = true;
+      #pragma clang diagnostic pop
+
       m_swsSpikes.SetSampleRate((double)m_smp.m_fDefaultSampleRate, 1.0);
       m_swsStimuli.m_dDeviceSampleRate = (double)m_smp.m_fDefaultSampleRate;
+
       m_swsStimuli.m_nNumRepetitions = 1;
       m_swsStimuli.m_nRandom = 0;
 
@@ -2433,6 +2469,11 @@ void __fastcall TformSpikeWare::btnPauseClick(TObject *Sender)
 TSWRunResult TformSpikeWare::RunMeasurement(bool bResume)
 {
    TSWRunResult swrr = SWRR_ERROR;
+
+   // reload measuremet if needed
+   if (!CheckReloadMeasurement())
+      return swrr;
+
    if (!m_smp.Init())
       return swrr;
 
@@ -2507,6 +2548,16 @@ void __fastcall TformSpikeWare::TriggerTest()
 {
    m_sweEpoches.m_nTriggersDetected = 0;
    m_nStimPlayIndex = 0;
+
+
+   #pragma clang diagnostic push
+   #pragma clang diagnostic ignored "-Wfloat-equal"
+   // now store flag if we have to reload a measurement in RunMeasurement later
+   if (  m_swsSpikes.GetSampleRate() != (double)m_smp.m_fDefaultSampleRate
+      || m_swsSpikes.m_dSampleRateDevider != 1.0
+      )
+      m_bForceReloadMeasurement = true;
+   #pragma clang diagnostic pop
 
    m_swsStimuli.m_dDeviceSampleRate = (double)m_smp.m_fDefaultSampleRate;
    m_swsSpikes.SetSampleRate(m_swsStimuli.m_dDeviceSampleRate, 1.0);
@@ -3599,6 +3650,7 @@ void __fastcall TformSpikeWare::AppMessage(tagMSG &Msg, bool &Handled)
          )
          {
          SetStatusMsg("External call to " + m_usASCaption + " detected while not allowed");
+         Handled = true;
          return;
          }
 
@@ -3609,10 +3661,11 @@ void __fastcall TformSpikeWare::AppMessage(tagMSG &Msg, bool &Handled)
          if (us.Length() && us != ms_usSettingsName)
             {
             SetStatusMsg("External call to " + m_usASCaption + " with different settings detected. Switching only possible with restart of AudioSpike!");
+            Handled = true;
             return;
             }
 
-         if (m_gs == SWGS_FREESEARCHSTOP)
+         if (m_gs == SWGS_FREESEARCHSTOP && !!m_pformSearchFree)
             m_pformSearchFree->Close();
          ProcessCommandLine(false);
          }

@@ -160,6 +160,8 @@ void WriteParamStrIni()
 //------------------------------------------------------------------------------
 void ReadParamStrIni(TStringList* psl)
 {
+   if (!psl)
+      return;
    psl->Clear();
    TIniFile* pIni = new TIniFile(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "IPC.ini");
    try
@@ -213,7 +215,7 @@ void trim(std::string& str, char cTrim)
   str = str.substr(pos1 == std::string::npos ? 0 : pos1,
          pos2 == std::string::npos ? str.length() - 1 : pos2 - pos1 + 1);
 }
-//--------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 */
 
 //------------------------------------------------------------------------------

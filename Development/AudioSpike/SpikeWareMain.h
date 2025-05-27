@@ -138,6 +138,7 @@ enum TEpocheLoadMode
 //------------------------------------------------------------------------------
 enum TSWLoadMode
 {
+   SWLM_NONE     = -1,  ///< initial status NONE
    SWLM_TEMPLATE = 0,   ///< load a template (start a new measurement)
    SWLM_RESULT,         ///< load a result
    SWLM_RESUME          ///< load an incomplete result for resuling measurement
@@ -172,6 +173,7 @@ enum TSWRunResult
    SWRR_PAUSE        ///< meas is paused
 };
 //------------------------------------------------------------------------------
+
 
 //------------------------------------------------------------------------------
 /// Main form and class of AudioSpike: manages all subclasess and GUI
@@ -237,7 +239,7 @@ class TformSpikeWare : public TForm
       TMenuItem *N1;
       TMenuItem *miBatchRun;
       TToolButton *btnBatch;
-   TMenuItem *miUpdateCheck;
+      TMenuItem *miUpdateCheck;
       void __fastcall btnLoadTemplateClick(TObject *Sender);
       void __fastcall btnParamClick(TObject *Sender);
       void __fastcall btnRunClick(TObject *Sender);
@@ -264,9 +266,11 @@ class TformSpikeWare : public TForm
       void __fastcall btnReloadEpochesClick(TObject *Sender);
       void __fastcall btnBatchClick(TObject *Sender);
       void __fastcall sbResize(TObject *Sender);
-   void __fastcall miUpdateCheckClick(TObject *Sender);
+      void __fastcall miUpdateCheckClick(TObject *Sender);
    private:	// Benutzer-Deklarationen
-      bool     m_bFormsCreated;      
+      bool     m_bFormsCreated;
+      bool     m_bForceReloadMeasurement;
+      int      m_nLastLoadMode;
       void     CreateForms();
       void     CreateClusterWindow(int nX = -1, int nY = -1, unsigned int nChannels = 1);
       bool     ProcessEpoches();
@@ -416,7 +420,10 @@ class TformSpikeWare : public TForm
       bool           IsFreeWindows();
       bool           IsBatchMode();
       void           CleanupBatchMode();
-      void           EnableEpocheTimer(bool bEnable);      
+      void           EnableEpocheTimer(bool bEnable);
+      bool           CheckReloadMeasurement();
+
+
 };
 //------------------------------------------------------------------------------
 extern PACKAGE TformSpikeWare *formSpikeWare;

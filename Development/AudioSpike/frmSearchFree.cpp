@@ -134,6 +134,8 @@ void __fastcall TformSearchFree::FormClose(TObject *Sender, TCloseAction &Action
    formSpikeWare->StoreChartAxis(this, chrt, true, true);
    TformASUI::FormClose(Sender, Action);
    TRYDELETENULL(m_pfrmSelectChannels);
+   // reload measuremet if needed
+   formSpikeWare->CheckReloadMeasurement();
 }
 //------------------------------------------------------------------------------
 

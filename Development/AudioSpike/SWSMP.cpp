@@ -643,7 +643,7 @@ bool SWSMP::Init(int nMode)
 {
    if (!ReadSettings())
       return false;
-      
+
    try
       {
       if (formSpikeWare->m_swsStimuli.m_dDeviceSampleRate == 0.0)
