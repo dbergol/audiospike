@@ -508,7 +508,7 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                int nPos = (int)(m_nLastTriggerPos + m_nDoubleTriggerDistance - (m_nSamplesPlayed - nNumCopySamplesInBuf));
                if (nPos < 0 || nPos > (int)nNumCopySamplesInBuf-1)
                   {
-                  // OutputDebugString("UNEXPECTED");
+                  // OutputDebugString("SET m_nFirstTriggerError TO 1 UNEXPCETED");
                   m_nFirstTriggerError = 1;
                   }
                else
@@ -517,12 +517,14 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                   if (vvfBuffers[nTriggerChannel][(unsigned int)nPos] >= TRIGGER_THRESHOLD/2.0f)
                      {
                      // set flag, that first trigger was fine!
+                     // OutputDebugString("SET m_nFirstTriggerError TO 0");
                      m_nFirstTriggerError = 0;
                      // OutputDebugStringW(L"trig OK B");
                      }
                   else
                      {
                      // set error flag
+                     // OutputDebugString("SET m_nFirstTriggerError TO 1");
                      m_nFirstTriggerError = 1;
                      //OutputDebugStringW(L"trig NOT OK B");
                      }
@@ -535,8 +537,12 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
          // check for 'no triggers at all'
          if (!formSpikeWare->m_bFreeSearchRunning)
             {
-            if (formSpikeWare->m_nStimPlayIndex > m_nStimIndexAtStart && !m_nTriggersDetected)
+            // NOTE: here we give one index grace for the epoche timer, thus >m_nStimIndexAtStart+1:
+            // otherwise the EpocheTimer might 'see' an error of '2' shortly before m_nFirstTriggerError is
+            // set to 0 in next call!
+            if (formSpikeWare->m_nStimPlayIndex > m_nStimIndexAtStart+1 && !m_nTriggersDetected)
                {
+               // OutputDebugString("SET m_nFirstTriggerError TO 2 (2)");
                m_nFirstTriggerError = 2;
                // OutputDebugString("ERR NO TR 1");
                }
@@ -546,6 +552,7 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
             if (  formSpikeWare->m_smp.m_nFreeSearchSamplesPlayed
                   > 3*floor(formSpikeWare->m_swsStimuli.m_dDeviceSampleRate) + formSpikeWare->m_smp.m_nTriggerOffset
                )
+               // OutputDebugString("SET m_nFirstTriggerError TO 2");
                m_nFirstTriggerError = 2;
             }
 
@@ -599,12 +606,14 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                         if (vvfBuffers[nTriggerChannel][nSourceStartSample+(unsigned int)m_nDoubleTriggerDistance] >= TRIGGER_THRESHOLD/2.0f)
                            {
                            // set flag, that first trigger was fine!
+                           // OutputDebugString("SET m_nFirstTriggerError TO 0");
                            m_nFirstTriggerError = 0;
                            // OutputDebugStringW(("trig OK A"  + IntToStr(nDistance)).w_str());
                            }
                         else
                            {
                            // set error flag
+                           // OutputDebugString("SET m_nFirstTriggerError TO 1");
                            m_nFirstTriggerError = 1;
                            // OutputDebugStringW(("trig NOT OK A"  + IntToStr(nDistance)).w_str());
                            }

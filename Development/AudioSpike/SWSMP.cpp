@@ -1424,15 +1424,23 @@ void SWSMP::LoadStim(int nStimInd, bool bFirstStim, int nLoopCount)
       nStartOffset  = (int)floor(formSpikeWare->m_swsStimuli.m_dDeviceSampleRate / 5.0);
    int nPreStimulus  = MsToSamples(1000.0*formSpikeWare->m_sweEpoches.m_dPreStimulus, formSpikeWare->m_swsStimuli.m_dDeviceSampleRate);
    // first load trigger.
+   // If we have play only one stimulus unlooped at all, then add one more trigger for having playpack
+   // running for one more epoche
+   int nExtraTrigger = 0;
+   if (formSpikeWare->m_viStimSequence.size() == 1 && nLoopCount == 1)
+      nExtraTrigger += 1;
    if (!Command(  "loadmem",
                   "track="       + IntToStr(m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))
                +  ";offset="     + IntToStr(bFirstStim ? nStartOffset + m_nTriggerOffset : 0)
                +  ";data="       + IntToStr((NativeInt)&m_vadTrigger[0])
-               +  ";loopcount="  + IntToStr(nLoopCount)
+               +  ";loopcount="  + IntToStr(nLoopCount+nExtraTrigger)
                +  ";samples="    + IntToStr((int)m_vadTrigger.size())
                +  ";channels=1"
                ))
       throw Exception("error loading trigger");
+
+   // if we have the VERY last stimulus, append an epoche of silence
+
 
 
    // get reference to stimulus

@@ -794,7 +794,7 @@ bool TformSpikeWare::CheckReloadMeasurement()
       if (bReturn)
          {
          if (m_nLastLoadMode == SWLM_TEMPLATE)
-            SetGUIStatus(SWLM_TEMPLATE);
+            SetGUIStatus(SWGS_LOADED);
          else
             SetGUIStatus(SWGS_RESULTLOADED);
          }
@@ -3315,6 +3315,7 @@ bool TformSpikeWare::ProcessEpoches()
       {
       if (!m_sweEpoches.Count())
          return false;
+
       TSWEpoche *pswe      = NULL;
 
       bool bLast = false;
