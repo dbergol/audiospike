@@ -62,62 +62,30 @@ enum TSubNodeType
 {
    SNT_NONE = 0,              ///< do not parse subnodes at all
    SNT_SUBNODES_FIRST,        ///< parse subnodes by names of first subnode
-   SNT_SUBNODES_MAX           ///< parse subnodes by names subnode wt the most fields
+   SNT_SUBNODES_ALL           ///< parse subnodes by ALL occurring field names
 };
 //------------------------------------------------------------------------------
 
 //  local prototypes
 mxArray* XMLValue2mxArray(_di_IXMLNode xml, AnsiString asFieldName);
 void     AddMATFromXML(  MATFile *pmat, _di_IXMLNode xml, TSubNodeType snt, AnsiString asNodeName = "");
+int      IndexFromName(vas &rvas, AnsiString as);
 
 
-//---------------------------------------------------------------------------
-/// class for stroring field names of an XML node and a char pointer list
-/// to the names
-//---------------------------------------------------------------------------
-class MLStructFields
+//------------------------------------------------------------------------------
+/// returns index of string in passed vector, or -1 if it doesn't exist
+//------------------------------------------------------------------------------
+int IndexFromName(vas &rvas, AnsiString as)
 {
-   public:
-      vas            m_vasNames;
-      MLStructFields(_di_IXMLNode xml);
-      const char**   GetPNames();
-   private:
-      vapc           m_vapcPNames;
-};
-//---------------------------------------------------------------------------
-
-
-
-//---------------------------------------------------------------------------
-/// constructor. retreives all childnode names, adds them to m_vasNames and
-/// adds char* to each name to m_vapcPNames
-//---------------------------------------------------------------------------
-MLStructFields::MLStructFields(_di_IXMLNode xml)
-{
-   unsigned int nCount = (unsigned int)xml->ChildNodes->Count;
-   m_vapcPNames.resize(nCount);
-
-   // loop through children
    unsigned int n;
-   for (n = 0; n < nCount; n++)
+   for (n = 0; n < rvas.size(); n++)
       {
-      _di_IXMLNode xmlChild = xml->ChildNodes->Nodes[(int)n];
-      // add name to AnsiString vector
-      m_vasNames.push_back(AnsiString(xmlChild->GetNodeName()).c_str());
-      // add pointer to first char to char* valarray
-      m_vapcPNames[n] = m_vasNames[n].c_str();
+      if (UpperCase(rvas[n]) == UpperCase(as))
+         return (int)n;
       }
+   return -1;
 }
-//---------------------------------------------------------------------------
-
-//---------------------------------------------------------------------------
-/// returns char** to the char pointer array
-//---------------------------------------------------------------------------
-const char**   MLStructFields::GetPNames()
-{
-   return &m_vapcPNames[0];
-}
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 
 //---------------------------------------------------------------------------
@@ -131,6 +99,10 @@ mxArray* XMLValue2mxArray(_di_IXMLNode xml, AnsiString asFieldName)
    mxArray* mValue = NULL;
    // retrieve XML value as text
    AnsiString as = GetXMLValue(xml, asFieldName);
+   // if empty return NULL;
+   if (!as.Length())
+      return mValue;
+
    // Field name is 'Data'? Then it's bas64encoded!!
    if (LowerCase(asFieldName) == "data")
       {
@@ -169,6 +141,9 @@ mxArray* XMLValue2mxArray(_di_IXMLNode xml, AnsiString asFieldName)
 }
 //---------------------------------------------------------------------------
 
+
+
+
 //---------------------------------------------------------------------------
 /// adds all fields of an XML node  to a struct and writes it to passed MATfile
 /// If bSubNodes is true, then this is done in a loop for all subnodes
@@ -188,42 +163,67 @@ void AddMATFromXML(  MATFile *pmat, _di_IXMLNode xml, TSubNodeType snt, AnsiStri
       if (!nNodeCount)
          return;
 
-               
-      // create field names and char pointer list for mxCreateStructArray either
-      // node itself or from subnode 
-      int nNode; 
+      // create array with names of fields as AnsiStrings
+      vas vasNames;
+
+      int nNode, nSubNode, nSubNodeCount;
+
+      // for 'initial' names use either node itself ....
       _di_IXMLNode xmlTmp = xml;
+      // .... or first subnode respectively
       if (snt != SNT_NONE)
-         {
          xmlTmp = xml->ChildNodes->Nodes[0];
-         if (snt == SNT_SUBNODES_MAX)
+
+      int nCount = xmlTmp->ChildNodes->Count;
+
+      // loop through children and add ALL field names
+      int n;
+      for (n = 0; n < nCount; n++)
+         {
+         // OutputDebugString(AnsiString(xmlTmp->ChildNodes->Nodes[(int)n]->GetNodeName()).c_str());
+         vasNames.push_back(AnsiString(xmlTmp->ChildNodes->Nodes[(int)n]->GetNodeName()));
+         }
+
+      // use ALL fieldnames? This is necessary, if we have subnodes with different dield names and/or counts
+      // (e.g. for 'Parameters'). Then we need to create a Matlab struct with ALL existing field names from
+      // ALL subnodes.....
+      if (snt == SNT_SUBNODES_ALL && nNodeCount > 1)
+         {
+         AnsiString asName;
+         // loop through nodes > 0 and collect field names, that are not yet in vasNames
+         for (nNode = 1; nNode < nNodeCount; nNode++)
             {
-            int nMax = 0;
-            int nCur;
-            for (nNode = 0; nNode < nNodeCount; nNode++)
+            OutputDebugString(AnsiString("NODE " + IntToStr((int)nNode)).c_str());
+            xmlTmp = xml->ChildNodes->Nodes[nNode];
+            nSubNodeCount = xmlTmp->ChildNodes->Count;
+            for (n = 0; n < nSubNodeCount; n++)
                {
-               nCur = xml->ChildNodes->Nodes[nNode]->ChildNodes->Count;
-               if (nCur > nMax)
-                  {
-                  nMax = nCur;
-                  xmlTmp = xml->ChildNodes->Nodes[nNode];
-                  }
+               // add field only, if not already in vasNames!
+               asName = AnsiString(xmlTmp->ChildNodes->Nodes[(int)n]->GetNodeName());
+               if (IndexFromName(vasNames, asName) < 0)
+                  vasNames.push_back(asName);
                }
             }
          }
-      
-      
-      MLStructFields ml(xmlTmp);
 
-      // find number of fields
-      int nFieldCount = (int)ml.m_vasNames.size();
+      // create vector with pointers to field names
+      vapc vapcPNames;
+      vapcPNames.resize(size(vasNames));
+      unsigned int u;
+      for (u = 0; u < size(vasNames); u++)
+         {
+         vapcPNames[u] = vasNames[u].c_str();
+         }
+
+
+      // total number number of fields
+      int nFieldCount = (int)vasNames.size();
 
       // create MATLAB sub-struct
       int dims[2] = {1, nNodeCount};
-      mArray = mxCreateStructArray(2, dims, nFieldCount, ml.GetPNames());
+      mArray = mxCreateStructArray(2, dims, nFieldCount, &vapcPNames[0]);
       if (!mArray)
          throw Exception("error calling mxCreateStructArray");
-
       AnsiString as;
       vved vvedData;
       int nField;
@@ -233,16 +233,12 @@ void AddMATFromXML(  MATFile *pmat, _di_IXMLNode xml, TSubNodeType snt, AnsiStri
          // access node (or or subnode. NOTE: if snt == SNT_NONE, then nNodeCount
          // is always 1 ....)
          _di_IXMLNode xmlChild = snt ? xml->ChildNodes->Nodes[nNode] : xml;
-
          // loop through fields
          for (nField = 0; nField < nFieldCount; nField++)
             {
-            if (xmlChild->ChildNodes->Count <= nField)
-               break;
-            mxSetFieldByNumber(mArray, nNode, nField, XMLValue2mxArray(xmlChild, ml.m_vasNames[(unsigned int)nField]));
+            mxSetFieldByNumber(mArray, nNode, nField, XMLValue2mxArray(xmlChild, vasNames[(unsigned int)nField]));
             }
          }
-
       // put struct into passed MAT-file
       matPutVariable(pmat, asNodeName.c_str(), mArray);
       }
@@ -301,7 +297,8 @@ void XML2MAT(_di_IXMLNode xmlDoc, UnicodeString& rusMATFile)
       AddMATFromXML(pmat, xmlSettings, SNT_NONE);
 
       // add parameters (with subnodes)
-      AddMATFromXML(pmat, xmlParams, SNT_SUBNODES_MAX);
+      OutputDebugString("GO PARAMS");
+      AddMATFromXML(pmat, xmlParams, SNT_SUBNODES_ALL);
 
       // add single value StimulusSequence
       mxArray* mxa = XMLValue2mxArray(xmlResultNode, "StimulusSequence");
@@ -310,7 +307,6 @@ void XML2MAT(_di_IXMLNode xmlDoc, UnicodeString& rusMATFile)
 
       // add stimuli (fourth argument 'Stimuli', because node name is 'AllStimuli')
       AddMATFromXML(pmat, xmlStimuli, SNT_SUBNODES_FIRST, "Stimuli");
-
       // add Spikes and NonSelectedSpikes (if any)
       if (!!xmlSpikes)
          AddMATFromXML(pmat, xmlSpikes, SNT_SUBNODES_FIRST);
@@ -319,6 +315,7 @@ void XML2MAT(_di_IXMLNode xmlDoc, UnicodeString& rusMATFile)
 
       // add Epoches with respect to rbEpoches
       AddMATFromXML(pmat, xmlEpoches, SNT_SUBNODES_FIRST);
+
       }
    __finally
       {
