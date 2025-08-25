@@ -287,6 +287,7 @@ void TSWSpikes::Add(TSWEpoche *pswe, vvd *pvvd)
    if (!vvdData.size())
       return;
    EnterCriticalSection(&m_cs);
+
    try
       {
       unsigned int n, nChannel;
@@ -341,43 +342,32 @@ void TSWSpikes::Add(_di_IXMLNode xmlSpikes)
    EnterCriticalSection(&m_cs);
    try
       {
+      double   dSpikeTime, dThreshold;
+      int      nSpikePos, nStimIndex, nEpocheIndex, nRepetitionIndex, nChannelIndex;
       AnsiString asData;
-      double d;
-      int n, nSpike;
-      for (nSpike = 0; nSpike < xmlSpikes->ChildNodes->Count; nSpike++)
+
+      // NOTE: accessing nodes in XML-Interface is very slow. But we may have
+      // maaaaany spikes childnodes (single spikes) here. Therefor we use the
+      // low level for the DOM-Interface here node
+      _di_IDOMNode xmlSpike = xmlSpikes->GetDOMNode()->childNodes->item[0];
+      while (xmlSpike)
          {
-         _di_IXMLNode xmlSpike = xmlSpikes->ChildNodes->Nodes[nSpike];
-
-         TSWSpike *psms = new TSWSpike(this);
-         if (!TryStrToDouble(GetXMLValue(xmlSpike, "SpikeTime"), d))
-            {
+         if (!TryStrToDouble(GetNodeChildValue(xmlSpike, "SpikeTime"), dSpikeTime))
             throw Exception("invalid SpikeTime found in a spike");
-            }
-
-         // NOTE: values were written 1-based !!!
-         psms->m_dSpikeTime = d;
-
-         if (!TryStrToInt(GetXMLValue(xmlSpike, "SpikePosition"), n))
+         if (!TryStrToInt(GetNodeChildValue(xmlSpike, "SpikePosition"), nSpikePos))
             throw Exception("invalid SpikePosition found in a spike");
-         psms->m_nSpikePos = (unsigned int)n-1;
-         if (!TryStrToInt(GetXMLValue(xmlSpike, "StimIndex"), n))
+         if (!TryStrToInt(GetNodeChildValue(xmlSpike, "StimIndex"), nStimIndex))
             throw Exception("invalid StimIndex found in a spike");
-         psms->m_nStimIndex = (unsigned int)n-1;
-         if (!TryStrToInt(GetXMLValue(xmlSpike, "EpocheIndex"), n))
+         if (!TryStrToInt(GetNodeChildValue(xmlSpike, "EpocheIndex"), nEpocheIndex))
             throw Exception("invalid EpocheIndex found in a spike");
-         psms->m_nEpocheIndex = (unsigned int)n-1;
-         if (!TryStrToInt(GetXMLValue(xmlSpike, "RepetitionIndex"), n))
+         if (!TryStrToInt(GetNodeChildValue(xmlSpike, "RepetitionIndex"), nRepetitionIndex))
             throw Exception("invalid Repetition found in a spike");
-         psms->m_nRepetitionIndex = (unsigned int)n-1;
-         if (!TryStrToInt(GetXMLValue(xmlSpike, "Channel"), n))
+         if (!TryStrToInt(GetNodeChildValue(xmlSpike, "Channel"), nChannelIndex))
             throw Exception("invalid Channel found in a spike");
-         psms->m_nChannelIndex = (unsigned int)n-1;
-         if (!TryStrToDouble(GetXMLValue(xmlSpike, "Threshold"), d))
+         if (!TryStrToDouble(GetNodeChildValue(xmlSpike, "Threshold"), dThreshold))
             throw Exception("invalid Threshold found in a spike");
-         psms->m_dThreshold = d;
-
          // decode data
-         asData = GetXMLValue(xmlSpike, "Data");
+         asData = GetNodeChildValue(xmlSpike, "Data");
          if (asData.IsEmpty())
             throw Exception("empty Data found in a spike");
 
@@ -388,9 +378,23 @@ void TSWSpikes::Add(_di_IXMLNode xmlSpikes)
                      ", current length: " +
                      IntToStr((int)tbData.Length)
             );
+
+         TSWSpike *psms             = new TSWSpike(this);
+         // NOTE: values were written 1-based !!!
+         psms->m_dSpikeTime         = dSpikeTime;
+         psms->m_nSpikePos          = (unsigned int)nSpikePos-1;
+         psms->m_nStimIndex         = (unsigned int)nStimIndex-1;
+         psms->m_nEpocheIndex       = (unsigned int)nEpocheIndex-1;
+         psms->m_nRepetitionIndex   = (unsigned int)nRepetitionIndex-1;
+         psms->m_nChannelIndex      = (unsigned int)nChannelIndex-1;
+         psms->m_dThreshold         = dThreshold;
+         // copy the raw spike data
          CopyMemory(&psms->m_vadData[0], &tbData[0], (unsigned int)m_nSpikeLength*sizeof(double));
          psms->Init(m_dSampleRate);
+         // add it to spikes array
          m_vvSpikes[psms->m_nChannelIndex].push_back(psms);
+
+         xmlSpike = xmlSpike->nextSibling;
          }
       }
    __finally

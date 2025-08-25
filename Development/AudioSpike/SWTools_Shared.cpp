@@ -313,6 +313,38 @@ UnicodeString  GetXMLValue(_di_IXMLNode &rNode, UnicodeString usName)
 
 
 //------------------------------------------------------------------------------
+/// tries to read a ChildValue from an DOM node by name
+//------------------------------------------------------------------------------
+UnicodeString  GetNodeChildValue(_di_IDOMNode rNode, UnicodeString usName)
+{
+   UnicodeString us;
+   try
+      {
+      // go through childnodes to find named node
+      _di_IDOMNode child = rNode->childNodes->item[0];
+      while (child)
+         {
+         // check
+         if (!child->nodeName.CompareIC(usName))
+            {
+            if (child->childNodes->length)
+               us = child->childNodes->item[0]->nodeValue;
+            break;
+            }
+
+         child = child->nextSibling;
+         }
+   }
+   catch (...)
+      {
+      us = "";
+      }
+   return us;
+}
+//------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------
 /// checks if passed string is double
 //------------------------------------------------------------------------------
 bool IsDouble(AnsiString s)

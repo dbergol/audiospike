@@ -13,7 +13,7 @@ inherited formSpikes: TformSpikes
   TextHeight = 13
   object bvl: TBevel
     Left = 0
-    Top = 31
+    Top = 33
     Width = 635
     Height = 1
     Align = alTop
@@ -24,9 +24,9 @@ inherited formSpikes: TformSpikes
   end
   object chrt: TChart
     Left = 0
-    Top = 32
+    Top = 34
     Width = 635
-    Height = 267
+    Height = 265
     AllowPanning = pmNone
     Legend.Visible = False
     Title.Text.Strings = (
@@ -82,11 +82,12 @@ inherited formSpikes: TformSpikes
     BevelOuter = bvNone
     Color = clWhite
     TabOrder = 0
+    ExplicitTop = 32
+    ExplicitHeight = 267
     DefaultCanvas = 'TGDIPlusCanvas'
     ColorPaletteIndex = 0
     object csThreshold: TLineSeries
       Selected.Hover.Visible = False
-      Active = False
       HorizAxis = aTopAxis
       Brush.BackColor = clDefault
       Pointer.InflateMargins = True
@@ -111,9 +112,9 @@ inherited formSpikes: TformSpikes
     Left = 0
     Top = 0
     Width = 635
-    Height = 31
+    Height = 33
     ButtonHeight = 30
-    ButtonWidth = 31
+    ButtonWidth = 33
     Caption = 'tb'
     DisabledImages = ild
     EdgeInner = esLowered
@@ -133,7 +134,7 @@ inherited formSpikes: TformSpikes
       OnClick = btnPlotClick
     end
     object tbtnSpikesBack: TToolButton
-      Left = 31
+      Left = 33
       Top = 0
       Hint = 'Move to prior spikes (if more than maximum number available)'
       Caption = 'tbtnSpikesBack'
@@ -144,7 +145,7 @@ inherited formSpikes: TformSpikes
       OnClick = tbtnSpikesClick
     end
     object tbtnSpikesForward: TToolButton
-      Left = 62
+      Left = 66
       Top = 0
       Hint = 'Move to next spikes (if more than maximum number available)'
       Caption = 'tbtnSpikesForward'
@@ -158,21 +159,44 @@ inherited formSpikes: TformSpikes
   end
   object cbPlotEpocheSpikesOnly: TCheckBox
     AlignWithMargins = True
-    Left = 101
-    Top = 3
-    Width = 148
-    Height = 26
-    Caption = 'Plot current epoche only'
+    Left = 223
+    Top = 5
+    Width = 107
+    Height = 22
+    Caption = 'Current epoche'
     Enabled = False
     TabOrder = 2
     OnClick = cbPlotEpocheSpikesOnlyClick
+  end
+  object cbNumSpikes: TComboBox
+    Left = 148
+    Top = 5
+    Width = 55
+    Height = 21
+    Style = csDropDownList
+    TabOrder = 3
+    OnChange = cbNumSpikesChange
+    Items.Strings = (
+      '10'
+      '25'
+      '50'
+      '100'
+      '250'
+      '500')
+  end
+  object stPlotLimit: TStaticText
+    Left = 105
+    Top = 8
+    Width = 43
+    Height = 17
+    Caption = 'Plot limit'
+    TabOrder = 4
   end
   object il: TImageList
     Height = 24
     Masked = False
     Width = 24
-    Left = 440
-    Top = 8
+    Left = 576
     Bitmap = {
       494C010103002800040018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000600000001800000001002000000000000024
@@ -481,7 +505,7 @@ inherited formSpikes: TformSpikes
   object ild: TImageList
     Height = 24
     Width = 24
-    Left = 328
+    Left = 536
     Bitmap = {
       494C010103003006040018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000600000001800000001002000000000000024

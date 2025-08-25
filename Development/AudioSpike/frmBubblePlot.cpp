@@ -104,9 +104,24 @@ __fastcall TformBubblePlot::~TformBubblePlot()
 }
 //------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------
+/// OnCloseQuery callback. Closing not allowed in search mode if playback is active
+//------------------------------------------------------------------------------
+#pragma argsused
+void __fastcall TformBubblePlot::FormCloseQuery(TObject *Sender, bool &CanClose)
+{
+   if (m_bSearch && formSpikeWare->m_smp.Playing())
+      {
+      // important: set CanClose to false, because formSpikeWare->btnStopClick
+      // will delete this window!
+      CanClose = false;
+      formSpikeWare->btnStopClick(NULL);
+      }
+}
+//---------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClose callback. Calls baseclass and calls window removing function
+/// OnClose callback. Calls baseclass and calls window removing function 
 //------------------------------------------------------------------------------
 void __fastcall TformBubblePlot::FormClose(TObject *Sender, TCloseAction &Action)
 {
@@ -798,6 +813,7 @@ void __fastcall TformBubblePlot::chrtMouseMove(TObject *Sender, TShiftState Shif
       }
 }
 //------------------------------------------------------------------------------
+
 
 
 

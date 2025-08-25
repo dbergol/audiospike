@@ -103,6 +103,8 @@ void __fastcall TformSearchFree::ShowFreeSearch()
    btnStart->Enabled    =  true;
    ClipTimer->Tag       = 0;
    ClipTimer->Enabled   = true;
+   m_mngOnStart = formSpikeWare->m_pformSpikes->m_mng;
+   formSpikeWare->m_pformSpikes->SetMaxSpikesMode(MNG_FREESEARCH);
    formSpikeWare->SetWindowVisible(this, true);
 }
 //------------------------------------------------------------------------------
@@ -134,6 +136,7 @@ void __fastcall TformSearchFree::FormClose(TObject *Sender, TCloseAction &Action
    formSpikeWare->StoreChartAxis(this, chrt, true, true);
    TformASUI::FormClose(Sender, Action);
    TRYDELETENULL(m_pfrmSelectChannels);
+   formSpikeWare->m_pformSpikes->SetMaxSpikesMode(m_mngOnStart);
    // reload measuremet if needed
    formSpikeWare->CheckReloadMeasurement();
 }
@@ -148,7 +151,6 @@ void __fastcall TformSearchFree::FormClose(TObject *Sender, TCloseAction &Action
 void __fastcall TformSearchFree::chrtMouseDown(TObject *Sender, TMouseButton Button, TShiftState Shift,
           int X, int Y)
 {
-
    if (Button == mbRight)
       {
       if (btnStart->Enabled)
@@ -158,8 +160,6 @@ void __fastcall TformSearchFree::chrtMouseDown(TObject *Sender, TMouseButton But
       }
    else if (Button == mbLeft)
       {
-
-
       if (  X <= chrt->ChartRect.Left || X >= chrt->ChartRect.Right
          || Y <= chrt->ChartRect.Top || Y >= chrt->ChartRect.Bottom
          )
@@ -290,10 +290,7 @@ bool TformSearchFree::SetValues()
 void TformSearchFree::ClearData()
 {
    m_nClearCounter = 0;
-   formSpikeWare->m_swsSpikes.Clear();
-   formSpikeWare->m_sweEpoches.Clear();
-   if (formSpikeWare->FormsCreated())
-      formSpikeWare->m_pformSpikes->Clear();
+   formSpikeWare->ClearData();
 }
 //------------------------------------------------------------------------------
 
@@ -564,6 +561,7 @@ void  TformSearchFree::CreateFreeSearchSchroederPhaseToneComplex()
 
 }
 //------------------------------------------------------------------------------
+
 
 
 

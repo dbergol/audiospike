@@ -68,6 +68,7 @@ void           ParseIntValues(   std::vector<int >& rvi,
                                  bool bPositive = true);
 
 UnicodeString  GetXMLValue(_di_IXMLNode &rNode, UnicodeString usName);
+UnicodeString  GetNodeChildValue(_di_IDOMNode rNode, UnicodeString usName);
 
 bool           IsDouble(AnsiString s);
 AnsiString     DoubleToStr(double val);

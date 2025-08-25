@@ -167,7 +167,7 @@ class TformSettings : public TForm
       TLabel *lbU11;
       TPanel *pnlGeneral;
       TPanel *pnlSound;
-   TCheckBox *cbCheckUpdateOnStartup;
+      TCheckBox *cbCheckUpdateOnStartup;
       void __fastcall FormShow(TObject *Sender);
       void __fastcall cbDriversChange(TObject *Sender);
       void __fastcall lvOutputAdvancedCustomDrawItem(TCustomListView *Sender, TListItem *Item,

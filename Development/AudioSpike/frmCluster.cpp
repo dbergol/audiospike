@@ -283,7 +283,6 @@ void TformCluster::Plot(unsigned int nChannelIndex)
 
       csData->EndUpdate();
 
-      // update colors
       if (tbtnSelActive->Down)
          EnableSelection(true);
       }
@@ -326,7 +325,7 @@ void TformCluster::UpdateColors()
       if (tbtnSelActive->Down)
          {
          UnicodeString us;
-         us.printf(L"Clusterplot - Channel %d (%d/%lu)", Tag+1, nSelected, nNumSpikes);
+         us.printf(L"Clusterplot - Channel %d (%d / %lu)", Tag+1, nSelected, nNumSpikes);
          Caption = us;
          }
 

@@ -69,6 +69,7 @@ class TformBubblePlot : public TformASUI
              UnicodeString &LabelText);
       void __fastcall cbOnlyActiveBubbleClick(TObject *Sender);
       void __fastcall chrtMouseMove(TObject *Sender, TShiftState Shift, int X, int Y);
+      void __fastcall FormCloseQuery(TObject *Sender, bool &CanClose);
    private:	// Benutzer-Deklarationen
       TColor      m_clBubbleColor;
       double      m_dSelLen;

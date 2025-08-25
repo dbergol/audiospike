@@ -89,6 +89,7 @@ __fastcall TformSettings::~TformSettings()
 #pragma argsused
 void __fastcall TformSettings::FormShow(TObject *Sender)
 {
+   pc->ActivePage = tsGeneral;
    gbEqualisation->Visible = !formSpikeWare->IsInSitu();
    gbOutput->Visible = gbEqualisation->Visible;
    gbInSitu->Visible = !gbEqualisation->Visible;
@@ -159,6 +160,8 @@ int TformSettings::CheckSettings(bool bCanIgnore)
 
       if (bCanIgnore && n == ID_OK)
          nReturn = ID_IGNORE;
+      else
+         pc->ActivePage = tsSound;
       }
    return nReturn;
 }
@@ -266,12 +269,14 @@ void TformSettings::ReadSettings()
    if (us == "")
       {
       formSpikeWare->SWErrorBox("Please select a valid sound driver", Handle);
+      pc->ActivePage = tsSound;
       return;
       }
    nIndex = cbDrivers->Items->IndexOf(us);
    if (nIndex < 0)
       {
       formSpikeWare->SWErrorBox("Driver from settings not found: please select a valid sound driver", Handle);
+      pc->ActivePage = tsSound;
       return;
       }
 

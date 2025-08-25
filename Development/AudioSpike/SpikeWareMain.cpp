@@ -145,12 +145,23 @@ __fastcall TformSpikeWare::TformSpikeWare(TComponent* Owner)
    InitializeCriticalSection(&m_cs);
    Application->OnMessage = AppMessage;
 
-   m_vclSpikeColors.push_back(clLime);
+   // colors for spikes/clusters
+   m_vclSpikeColors.push_back(WebColorStrToColor("#FF970F"));
    m_vclSpikeColors.push_back(clFuchsia);
-   m_vclSpikeColors.push_back(clAqua);
+   m_vclSpikeColors.push_back(WebColorStrToColor("#05BCFF"));
    m_vclSpikeColors.push_back(clGreen);
    m_vclSpikeColors.push_back(clRed);
    m_vclSpikeColors.push_back(clBlue);
+
+   // colors for 'lighter' spikes (compared to average series)
+   m_vclSpikeColorsLight.push_back(WebColorStrToColor("#FFC273"));
+   m_vclSpikeColorsLight.push_back(WebColorStrToColor("#FE92FE"));
+   m_vclSpikeColorsLight.push_back(WebColorStrToColor("#7DDCFF"));
+   m_vclSpikeColorsLight.push_back(WebColorStrToColor("#99D99E"));
+   m_vclSpikeColorsLight.push_back(WebColorStrToColor("#FF9595"));
+   m_vclSpikeColorsLight.push_back(WebColorStrToColor("#78A1FF"));
+
+
 
    m_pIni         = new TIniFile(GetSettingsPath() + "AudioSpike.ini");
    m_pCalIni      = new TIniFile(GetSettingsPath() + "calibration.ini");
@@ -391,10 +402,11 @@ void __fastcall TformSpikeWare::FormShow(TObject *Sender)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// cleans up suforms
+/// cleans up forms and data
 //------------------------------------------------------------------------------
 void TformSpikeWare::Cleanup(void)
 {
+   Caption = m_usASCaption;
    // NOTE: param and cluster wnidows to be removed first: might try to access
    // spikes!
    while (m_vpformBubblePlots.size())
@@ -425,6 +437,23 @@ void TformSpikeWare::Cleanup(void)
    SetGUIStatus(SWGS_NONE);
 
    m_viStimSequence.clear();
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// clear spikes and epoches and corresponding plots
+//------------------------------------------------------------------------------
+void TformSpikeWare::ClearData(void)
+{
+   m_swsSpikes.Clear();
+   m_sweEpoches.Clear();
+   if (FormsCreated())
+      {
+      m_pformSpikes->Clear();
+      m_pformEpoches->ClearData();
+      ClearClusters();
+      PlotSpikes();
+      }
 }
 //------------------------------------------------------------------------------
 
@@ -645,7 +674,6 @@ void TformSpikeWare::ReadSettings()
          {
          }
       }
-   ;   
 
 }
 //------------------------------------------------------------------------------
@@ -656,7 +684,7 @@ void TformSpikeWare::ReadSettings()
 void TformSpikeWare::SetStyle()
 {
    UnicodeString us = m_pIni->ReadString("Settings", "Style", "Windows");
-   // clear deprectaed style
+   // clear deprecated style
    if (us == "Hoertech")
       us = "Windows";
    if (!us.IsEmpty())
@@ -748,11 +776,17 @@ bool TformSpikeWare::LoadMeasurementTemplate(UnicodeString us)
    if (SaveInquiry() == ID_CANCEL)
       return false;
    m_bDataAppended = false;
+
+   if (FormsCreated())
+      m_pformSpikes->SetMaxSpikesMode(MNG_MEAUSUREMENT);
+
    if (!LoadMeasurement(us, SWLM_TEMPLATE))
       return false;
 
 
    SetGUIStatus(SWGS_LOADED);
+
+
    Caption = m_usASCaption + " - " + xml->FileName;
    return true;
 }
@@ -768,8 +802,12 @@ bool TformSpikeWare::LoadMeasurementResult(UnicodeString us)
    m_bDataAppended = false;
 
 
+   if (FormsCreated())
+      m_pformSpikes->SetMaxSpikesMode(MNG_RESULT);
+
    if (!LoadMeasurement(us, SWLM_RESULT))
       return false;
+
 
    EnsureXMLEpocheThresholds();
 
@@ -777,6 +815,7 @@ bool TformSpikeWare::LoadMeasurementResult(UnicodeString us)
    Caption = m_usASCaption + " - " + xml->FileName;
 
    SetGUIStatus(SWGS_RESULTLOADED);
+
 
    return true;
 }
@@ -797,6 +836,8 @@ bool TformSpikeWare::CheckReloadMeasurement()
             SetGUIStatus(SWGS_LOADED);
          else
             SetGUIStatus(SWGS_RESULTLOADED);
+         if (FormsCreated())
+            m_pformSpikes->SetMaxSpikesMode(MNG_RESULT);
          }
       }
    return bReturn;
@@ -1238,6 +1279,9 @@ bool TformSpikeWare::AppendMeasurement(UnicodeString usFile)
 
       if (imFloppy->Visible)
          throw Exception("Please save current measurement before appending data!");
+
+      if (FormsCreated())
+         formSpikeWare->m_pformSpikes->SetMaxSpikesMode(MNG_MEAUSUREMENT);
 
       xml->Active = true;
       _di_IXMLNode xmlDoc        = xml->DocumentElement;
@@ -2130,6 +2174,9 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
          xmlChannel->ChildValues["NoiseSelection_Active"] = IntToStr((int)m_pformPSTH->m_vSWNoiseSelections[nChannel].bActive);
          }
 
+
+      // Below is the "old" spike saving routine using the DOM parser for each spike: horribly slow!
+      #ifdef OLD_SPIKE_SAVING
       // write Spikes and NonSelectedSpikes to different nodes in XML
       _di_IXMLNode xmlSpikes = xmlResultNode->ChildNodes->FindNode("Spikes");
       if (!!xmlSpikes)
@@ -2148,16 +2195,17 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
 
       for (nChannel = 0; nChannel < m_swsSpikes.m_vvSpikes.size(); nChannel++)
          {
-         if ((nChannel % 100) == 0)
-            {
-            usProgress += ".";
-            if (usProgress.Length() > 10)
-               usProgress = ".";
-            formWait->ShowWait("Saving result, please wait" + usProgress);
-            }
          nSpikes = m_swsSpikes.GetNumSpikes(nChannel);
          for (nSpike = 0; nSpike < nSpikes; nSpike++)
             {
+            if ((nSpike % 1000) == 0)
+               {
+               usProgress += ".";
+               if (usProgress.Length() > 10)
+                  usProgress = ".";
+               formWait->ShowWait("Saving result, please wait" + usProgress);
+               }
+
             _di_IXMLNode xmlSpike;
             // not selected?
             nSpikeGroup = m_swsSpikes.GetSpikeGroup(nChannel, nSpike);
@@ -2203,6 +2251,7 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
             usLevel = Trim(usLevel) + "]";
             xmlSpike->ChildValues["Level"] = usLevel;
 
+
             // If not denied from settings, write all spike parameters as well
             if (xmlSettings->ChildValues["SaveSpikeParams"] != "0")
                {
@@ -2215,6 +2264,116 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
             xmlSpike->ChildValues["Data"] = as;
             }
          }
+      #else  // #ifdef OLD_SPIKE_SAVING
+      // write Spikes and NonSelectedSpikes to different nodes in XML
+      // NOTE: here we write the complete nodes as strings and add them to xml->XML->Text manually because
+      // it is horribly slow to add them using the DOM-Parser!!
+      _di_IXMLNode xmlSpikes = xmlResultNode->ChildNodes->FindNode("Spikes");
+      if (!!xmlSpikes)
+         xmlResultNode->ChildNodes->Remove(xmlSpikes);
+
+      _di_IXMLNode xmlNonSelectedSpikes = xmlResultNode->ChildNodes->FindNode("NonSelectedSpikes");
+      if (!!xmlNonSelectedSpikes)
+         xmlResultNode->ChildNodes->Remove(xmlNonSelectedSpikes);
+
+      UnicodeString usSpikes = "<Spikes>";
+      UnicodeString usSpikesU = "<NonSelectedSpikes>";
+      UnicodeString usSpike;
+
+      unsigned int nPar, nSpikes, nSpike;
+      int nSpikeGroup;
+      UnicodeString usLevel;
+      UnicodeString usProgress = ".";
+
+      for (nChannel = 0; nChannel < m_swsSpikes.m_vvSpikes.size(); nChannel++)
+         {
+         nSpikes = m_swsSpikes.GetNumSpikes(nChannel);
+         for (nSpike = 0; nSpike < nSpikes; nSpike++)
+            {
+            if ((nSpike % 1000) == 0)
+               {
+               usProgress += ".";
+               if (usProgress.Length() > 10)
+                  usProgress = ".";
+               formWait->ShowWait("Saving result, please wait" + usProgress);
+               }
+            _di_IXMLNode xmlSpike;
+            // not selected?
+            nSpikeGroup = m_swsSpikes.GetSpikeGroup(nChannel, nSpike);
+            usSpike = "<Spike>";
+            if (nSpikeGroup >= 0)
+               usSpike += "<SpikeGroup>" + IntToStr((int)nSpikeGroup+1) + "</SpikeGroup>";
+
+            // NOTE: we write ALL spike parameters 1-based (grace for MATLAB users)
+            usSpike += "<SpikeTime>" + DoubleToStr(m_swsSpikes.GetSpikeTime(nChannel, nSpike)) + "</SpikeTime>";
+            usSpike += "<SpikePosition>" + IntToStr((int)m_swsSpikes.GetSpikePosition(nChannel, nSpike)+1) + "</SpikePosition>";
+            usSpike += "<StimIndex>" + IntToStr((int)m_swsSpikes.GetStimIndex(nChannel, nSpike)+1) + "</StimIndex>";
+            usSpike += "<EpocheIndex>" + IntToStr((int)m_swsSpikes.GetEpocheIndex(nChannel, nSpike)+1) + "</EpocheIndex>";
+            usSpike += "<Channel>" + IntToStr((int)nChannel+1) + "</Channel>";
+            usSpike += "<RepetitionIndex>" + IntToStr((int)m_swsSpikes.GetRepetitionIndex(nChannel, nSpike)+1) + "</RepetitionIndex>";
+            usSpike += "<Threshold>" + DoubleToStr(m_swsSpikes.GetThreshold(nChannel, nSpike)) + "</Threshold>";
+
+            std::vector<double >& rvdParams =
+               m_swsStimuli.m_swstStimuli[m_swsSpikes.GetStimIndex(nChannel, nSpike)].m_vdParams;
+            std::vector<UnicodeString >& rvusParams =
+               m_swsStimuli.m_swstStimuli[m_swsSpikes.GetStimIndex(nChannel, nSpike)].m_vusParams;
+
+            // write parameters with special handling of levels
+
+            usLevel = "[";
+            for (nPar = 0; nPar < m_swsStimuli.m_swspStimPars.m_vusNames.size(); nPar++)
+               {
+               UnicodeString us = StringReplace(m_swsStimuli.m_swspStimPars.m_vusNames[nPar], " ", "_", TReplaceFlags() << rfReplaceAll );
+               if (us.Pos("Level_") == 1)
+                  {
+                  usLevel += DoubleToStr(rvdParams[nPar]) + " ";
+                  continue;
+                  }
+               if (m_swsStimuli.m_swspStimPars.m_vbString[nPar])
+                  usSpike += "<" + us + ">" + rvusParams[nPar] + "</" + us + ">";
+               else
+                  usSpike += "<" + us + ">" + DoubleToStr(rvdParams[nPar]) + "</" + us + ">";
+               }
+            usLevel = Trim(usLevel) + "]";
+            usSpike += "<Level>" + usLevel + "</Level>";
+
+
+            // If not denied from settings, write all spike parameters as well
+            if (xmlSettings->ChildValues["SaveSpikeParams"] != "0")
+               {
+               UnicodeString usPar;
+               for (nPar = 0; nPar < m_swsSpikes.m_swspSpikePars.m_vusIDs.size(); nPar++)
+                  {
+                  usPar = m_swsSpikes.m_swspSpikePars.m_vusIDs[nPar];
+                  usSpike += "<" + usPar + ">" + DoubleToStr(m_swsSpikes.GetSpikeParam(nChannel, nSpike, (TSpikeParam)nPar)) + "</" + usPar + ">";
+                  }
+               }
+
+
+            // store raw spike data
+            AnsiString as = EncodeBase64(&m_swsSpikes.GetSpike(nChannel, nSpike)[0], (int)(m_swsSpikes.GetSpike(nChannel, nSpike).size()*sizeof(double)));
+            usSpike += "<Data>" + as + "</Data>";
+
+            usSpike += "</Spike>";
+            if (nSpikeGroup >= 0)
+               usSpikes += usSpike;
+            else
+               usSpikesU += usSpike;
+            }
+         }
+      usSpikes += "</Spikes>";
+      usSpikesU += "</NonSelectedSpikes>";
+
+      // remove closing nodes </Result> and </AudioSpike>
+      UnicodeString usXMLTmp = StringReplace(xml->XML->Text, "</Result>", "", TReplaceFlags() << rfReplaceAll );
+      usXMLTmp = StringReplace(usXMLTmp, "</AudioSpike>", "", TReplaceFlags() << rfReplaceAll );
+      // append two spike nodes and closing nodes again
+      usXMLTmp += usSpikes + usSpikesU + "</Result></AudioSpike>";
+
+      xml->XML->Text = usXMLTmp;
+      xml->Active = true;
+      #endif // #ifdef OLD_SPIKE_SAVING
+
 
       // find file with highest index (10000-based)
       UnicodeString usFileName;
@@ -2245,6 +2404,10 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
                usFileName.printf(L"%lsresult_%04d.xml", m_usResultPath.w_str(), nMax+1);
             }
          }
+
+
+
+
       // NOTE: FormatXMLData is very slow, thus we save 'unformatted' by default
       if (m_pIni->ReadBool("Settings", "FormatXML", false))
          {
@@ -2395,6 +2558,7 @@ void __fastcall TformSpikeWare::btnRunClick(TObject *Sender)
       m_swsSpikes.Clear();
       if (FormsCreated())
          m_pformSpikes->Clear();
+
       m_nStimPlayIndex = EpochesXML(true);
       m_sweEpoches.AppendSave();
       RunMeasurement(true);
@@ -2428,8 +2592,7 @@ void __fastcall TformSpikeWare::btnStopClick(TObject *Sender)
 
    if (m_gs == SWGS_SEARCH)
       {
-      m_swsSpikes.Clear();
-      m_sweEpoches.Clear();
+      ClearData();
       SetGUIStatus(SWGS_LOADED);
       }
    else
@@ -2673,6 +2836,7 @@ void TformSpikeWare::PlotSpikes()
 {
    if (!FormsCreated())
       return;
+
    m_pformSpikes->Plot(m_pformEpoches->m_nPlotIndex);
    m_pformPSTH->Plot(m_pformEpoches->m_nPlotIndex);
    m_pformSignalPSTH->Plot(m_pformEpoches->m_nPlotIndex);
@@ -2926,6 +3090,7 @@ void TformSpikeWare::SetEvalWindow(TformEpoches* pfrm)
       }
 
    PlotClusters();
+
    PlotSpikes();
 }
 //------------------------------------------------------------------------------
@@ -3005,6 +3170,17 @@ void TformSpikeWare::ScaleClusterPlot(TformCluster* pfrm)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// calls Clear for all cluster plots
+//------------------------------------------------------------------------------
+void TformSpikeWare::ClearClusters()
+{
+   unsigned int n;
+   for (n = 0; n < m_vpformCluster.size(); n++)
+      m_vpformCluster[n]->Clear();
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 /// calls UpdateColors for all cluster plots and re-plots spikes
 //------------------------------------------------------------------------------
 void TformSpikeWare::UpdateClusterColors()
@@ -3017,13 +3193,16 @@ void TformSpikeWare::UpdateClusterColors()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// converts a spike group index to corresponding color
+/// converts a spike group index to corresponding color or lighter color repectively
 //------------------------------------------------------------------------------
-TColor   TformSpikeWare::SpikeGroupToColor(int n)
+TColor   TformSpikeWare::SpikeGroupToColor(int n, bool bLight)
 {
    if (n < 0)
       return clGray;
-   return m_vclSpikeColors[(unsigned int)n % m_vclSpikeColors.size()];
+   if (bLight)
+      return m_vclSpikeColorsLight[(unsigned int)n % m_vclSpikeColors.size()];
+   else
+      return m_vclSpikeColors[(unsigned int)n % m_vclSpikeColors.size()];
 }
 //------------------------------------------------------------------------------
 
@@ -3366,6 +3545,8 @@ void __fastcall TformSpikeWare::miSettingsClick(TObject *Sender)
 
    m_smp.ReadSettings(false, true);
    m_pformSettings->ShowModal();
+
+
    ReadSettings();
 }
 //------------------------------------------------------------------------------

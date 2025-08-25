@@ -54,8 +54,9 @@ __fastcall TformASUI::TformASUI(TComponent* Owner, TMenuItem* pmi)
    // main form and/or INI file entry. Then we call RestoreFormVis....
    if (!!m_pmiMainFormMenu)
       {
-      m_pmiMainFormMenu->Tag = (int)this;
+      m_pmiMainFormMenu->Tag = (NativeInt)this;
       formSpikeWare->RestoreFormVis(this);
+
       }
    // or we set intial state if either is visible or 'magic' (== abused) HelpContext is > 0
    else if (Visible || HelpContext)

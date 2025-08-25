@@ -91,6 +91,7 @@ class TformEpocheWindow : public TformASUI
       __fastcall TformEpocheWindow(TComponent* Owner, TMenuItem* pmi);
       __fastcall ~TformEpocheWindow();
       void Clear();
+      void ClearData();
       void Initialize(int nChannels = -1);
       void Plot(TSWEpoche *pswe);
       void PlotSearchData(vvd &rvvdData);

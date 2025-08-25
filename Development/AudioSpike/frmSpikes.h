@@ -48,8 +48,24 @@
 #include <valarray>
 //------------------------------------------------------------------------------
 
+
+
 //------------------------------------------------------------------------------
-// form for displaying spikes
+/// class for averaging spikes
+//------------------------------------------------------------------------------
+class TSpikeAvg
+{
+   public:
+      TSpikeAvg();
+      std::valarray<double> m_vad;
+      int  m_nNumSpikes;
+      void Reset();
+      void SetSize(unsigned int nSize);
+      void Add(std::valarray<double>& rvad);
+};
+
+//------------------------------------------------------------------------------
+/// form for displaying spikes
 //------------------------------------------------------------------------------
 class TformSpikes : public TformASUI
 {
@@ -65,22 +81,38 @@ class TformSpikes : public TformASUI
       TImageList *ild;
       TCheckBox *cbPlotEpocheSpikesOnly;
       TBevel *bvl;
+      TComboBox *cbNumSpikes;
+      TStaticText *stPlotLimit;
       void __fastcall chrtClickAxis(TCustomChart *Sender, TChartAxis *Axis, TMouseButton Button,
              TShiftState Shift, int X, int Y);
       void __fastcall btnPlotClick(TObject *Sender);
       void __fastcall tbtnSpikesClick(TObject *Sender);
       void __fastcall cbPlotEpocheSpikesOnlyClick(TObject *Sender);
+      void __fastcall cbNumSpikesChange(TObject *Sender);
    private:	// Benutzer-Deklarationen
-      double   m_dThreshold;
-      int      m_nMaxNumSpikes;
+      double                  m_dThreshold;
+      int                     m_nNumSpikesSelected;
+      std::vector<TSpikeAvg > m_vsaAverage;
+      std::valarray<int >     m_vaSpikesSelected;
+      std::valarray<int >     m_vaSpikesFound;
+
    public:		// Benutzer-Deklarationen
       __fastcall TformSpikes(TComponent* Owner, TMenuItem* pmi);
       __fastcall ~TformSpikes();
+      void SetMaxNumSpikes();
       void Initialize();
       void UpdateThreshold();
+      int  NumNonSpikeSeries();
       void Clear();
       void Plot(unsigned int nChannelIndex);
-      int   m_nPlotCounter;
+      bool BackIndexAllowed(void);
+      void SetBackForwardEnabled(void);
+      UnicodeString GetMaxSpikesIniEntry(void);
+      void SetMaxSpikesMode(TMaxNumGroupSpikesMode mng);
+      TMaxNumGroupSpikesMode  m_mng;
+      int                     m_nMaxNumSpikes;
+      int                     m_nMaxNumGroupSpikes;
+      int                     m_nPlotCounter;
 };
 //------------------------------------------------------------------------------
 #endif

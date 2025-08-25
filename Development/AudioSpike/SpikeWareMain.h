@@ -309,6 +309,7 @@ class TformSpikeWare : public TForm
       std::vector<TformCluster* >      m_vpformCluster;
       std::vector<TformBubblePlot* >   m_vpformBubblePlots;
       std::vector<TColor >             m_vclSpikeColors;
+      std::vector<TColor >             m_vclSpikeColorsLight;
       TStringList*      m_pslParamStr;
       TIniFile*         m_pIni;
       TIniFile*         m_pCalIni;
@@ -384,8 +385,9 @@ class TformSpikeWare : public TForm
       void           SetSelectionWindow(TformCluster* pfrm);
       void           ScaleClusterPlots(int nChannel);
       void           ScaleClusterPlot(TformCluster* pfrm);
+      void           ClearClusters();
       void           UpdateClusterColors();
-      TColor         SpikeGroupToColor(int n);
+      TColor         SpikeGroupToColor(int n, bool bLight = false);
       void           SetThreshold(unsigned int nChannelIndex, double dThreshold, bool bSave = true);
       double         GetThreshold(unsigned int nChannelIndex);
       std::vector<double >& GetThresholds();
@@ -402,6 +404,7 @@ class TformSpikeWare : public TForm
       static void    SMPNotifyProc(void);
       void __fastcall TriggerTest(void);
       void           Cleanup(void);
+      void           ClearData(void);
       void           SetMeasurementChanged(bool bChanged = true, bool bForce = false);
       int            SaveInquiry();
       void           DeleteCurrentResults(bool bQueryForRawDataAndDir = true);

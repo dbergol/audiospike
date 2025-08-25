@@ -3,6 +3,7 @@ inherited formBubblePlot: TformBubblePlot
   Caption = 'Parameters'
   Visible = False
   StyleElements = [seFont, seClient, seBorder]
+  OnCloseQuery = FormCloseQuery
   TextHeight = 13
   object chrt: TChart
     Left = 0
@@ -89,10 +90,10 @@ inherited formBubblePlot: TformBubblePlot
       Marks.Color = clNavy
       SeriesColor = clGreen
       ClickableLine = False
-      Pointer.HorizSize = 27
+      Pointer.HorizSize = 17
       Pointer.InflateMargins = True
       Pointer.Style = psCircle
-      Pointer.VertSize = 27
+      Pointer.VertSize = 17
       XValues.Name = 'X'
       XValues.Order = loAscending
       YValues.Name = 'Y'

@@ -49,6 +49,7 @@
 
 class TformSelectChannels;
 
+
 //------------------------------------------------------------------------------
 /// form for free search, where stimulus parameters can be selected  in a 2d-plot
 //------------------------------------------------------------------------------
@@ -94,6 +95,7 @@ class TformSearchFree : public TformASUI
       float                         m_fSchroederHiFreq;
       bool                          m_bSchroederCached;
       int                           m_nClearCounter;
+      TMaxNumGroupSpikesMode        m_mngOnStart;
       void                          ClearData();
       void                          CreateFreeSearchSchroederPhaseToneComplex();
 

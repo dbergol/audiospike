@@ -93,7 +93,6 @@ class TformCluster : public TformASUI
    private:	// Benutzer-Deklarationen
       int         m_nCurrentSelectionIndex;
       bool        m_bSelectAllOnNoSelection;
-      std::vector<TChartShape* > m_vpcs;
       void        SelectionsToSelectionSeries();
       void        SelectionToSelectionSeries(unsigned int nSelectionIndex);
       void        ResetActiveSpikeGroups();
@@ -102,6 +101,7 @@ class TformCluster : public TformASUI
       TSpikeParam          m_spY;
       std::vector<bool >   m_vbSelActive;
       std::vector<std::vector<TSWClusterSelection > > m_vvSWSelections;
+      std::vector<TChartShape* > m_vpcs;
       int                  m_nPlotCounter;
       __fastcall TformCluster(TComponent* Owner, TSpikeParam spX, TSpikeParam spY);
       __fastcall ~TformCluster();
