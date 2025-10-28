@@ -69,6 +69,7 @@ class TformEpoches : public TForm
       TChartShape *csStimSeries;
       TLineSeries *csEpocheThreshold;
       TShape *shClip;
+   TTimer *ClipTimer;
       void __fastcall chrtMouseDown(TObject *Sender, TMouseButton Button, TShiftState Shift,
              int X, int Y);
       void __fastcall chrtMouseLeave(TObject *Sender);
@@ -85,6 +86,7 @@ class TformEpoches : public TForm
       void __fastcall chrtBeforeDrawAxes(TObject *Sender);
       void __fastcall tbtnEvalActiveClick(TObject *Sender);
       void __fastcall tbnListenClick(TObject *Sender);
+   void __fastcall ClipTimerTimer(TObject *Sender);
 
    private:	// Benutzer-Deklarationen
       CRITICAL_SECTION        m_cs;
@@ -102,6 +104,7 @@ class TformEpoches : public TForm
       void PlotData();
       void UpdateThreshold(double dThreshold);
       void Clear();
+      void ShowClipping(void);
       int  m_nPlotCounter;
 };
 //------------------------------------------------------------------------------

@@ -292,6 +292,7 @@ class TformSpikeWare : public TForm
       TSWGuiStatus      m_gs;
       CRITICAL_SECTION  m_cs;
       SWSMP             m_smp;
+      float             m_fInputClippingLimit;
       // forms
       TformSearchFree*     m_pformSearchFree;
       TformBatch*          m_pformBatch;
@@ -332,6 +333,7 @@ class TformSpikeWare : public TForm
       bool              m_bUpdateStimulusDisplay;
       bool              m_bDataAppended;
       bool              m_bLevelDebug;
+      bool              m_bAutoSave;
       bool              m_bSaveMAT;
       bool              m_bSaveProbeMic;
       bool              m_bStartupInSitu;
@@ -425,8 +427,6 @@ class TformSpikeWare : public TForm
       void           CleanupBatchMode();
       void           EnableEpocheTimer(bool bEnable);
       bool           CheckReloadMeasurement();
-
-
 };
 //------------------------------------------------------------------------------
 extern PACKAGE TformSpikeWare *formSpikeWare;

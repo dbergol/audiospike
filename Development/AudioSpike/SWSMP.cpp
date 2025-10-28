@@ -1989,6 +1989,11 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
             THROWCOND("No input channels set in settings");
          m_swcHWChannels.SetElectrodes(viChannelsInSettings);
 
+         std::vector<int > viChannelsInInvertedSettings;
+         ParseIntValues(viChannelsInInvertedSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, "ChannelsInInverted", ""), "ChannelsInInverted");
+         m_swcHWChannels.SetInputsInverted(viChannelsInInvertedSettings);
+
+
          int nTriggerChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerOut", -1);
          if (nTriggerChannelOut < 0)
             THROWCOND("No trigger out channel set in settings");
@@ -2123,6 +2128,7 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
 //------------------------------------------------------------------------------
 void  SWSMP::WriteSettings()
 {
+
    formSpikeWare->m_pIni->WriteString(m_usIniSection, "Driver", m_usDriver);
 
    UnicodeString us, usRaw;
@@ -2159,16 +2165,23 @@ void  SWSMP::WriteSettings()
    formSpikeWare->m_pIni->WriteString(m_usIniSection, usChannelsOutField, usRaw);
 
    us = "";
+   UnicodeString usInverted;
    for (n = 0; n < m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_IN); n++)
       {
       if (m_swcHWChannels.IsElectrode(n))
+         {
          us += IntToStr((int)n) + ",";
+         if (m_swcHWChannels.IsInputInverted(n))
+            usInverted += IntToStr((int)n) + ",";
+         }
       }
 
    RemoveTrailingDelimiter(us, L',');
+   RemoveTrailingDelimiter(usInverted, L',');
 
 
    formSpikeWare->m_pIni->WriteString(m_usIniSection, "ChannelsIn", us);
+   formSpikeWare->m_pIni->WriteString(m_usIniSection, "ChannelsInInverted", usInverted);
 
    formSpikeWare->m_pIni->WriteInteger(m_usIniSection, "TriggerIn", m_swcHWChannels.GetTrigger(SWSMPHWCDIR_IN));
    formSpikeWare->m_pIni->WriteInteger(m_usIniSection, "TriggerOut", m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT));

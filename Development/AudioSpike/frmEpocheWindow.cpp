@@ -330,26 +330,6 @@ void __fastcall TformEpocheWindow::TimerTimer(TObject *Sender)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// clipping timer callback: updates clip indicators on children
-//------------------------------------------------------------------------------
-#pragma argsused
-void __fastcall TformEpocheWindow::ClipTimerTimer(TObject *Sender)
-{
-   unsigned int n;
-   bool b;
-   for (n = 0; n < m_vpformEpoches.size(); n++)
-      {
-      b = false;
-      if (n < m_vbClip.size())
-         b = m_vbClip[n];
-      m_vpformEpoches[n]->shClip->Brush->Color = b ? clRed : clLime;
-      }
-
-   ClipTimer->Enabled = false;
-}
-//------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------
 /// resets clipping indicators on children
 //------------------------------------------------------------------------------
 void TformEpocheWindow::ResetClipping()
@@ -361,16 +341,12 @@ void TformEpocheWindow::ResetClipping()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// External "ShowClipping" funtion: copies clipping data and enables clipping 
-/// timer
+/// External "ShowClipping" function: calls corresponding function of subwindow
 //------------------------------------------------------------------------------
-void TformEpocheWindow::ShowClipping(std::vector<bool > &rvb)
+void TformEpocheWindow::ShowClipping(unsigned int nChannel)
 {
-   if (ClipTimer->Enabled)
-      return;
-
-   m_vbClip = rvb;
-   ClipTimer->Enabled = true;
+   if (nChannel < m_vpformEpoches.size())
+      m_vpformEpoches[nChannel]->ShowClipping();
 }
 //------------------------------------------------------------------------------
 
@@ -464,10 +440,7 @@ void __fastcall TformEpocheWindow::EpocheScrollTimerTimer(TObject *Sender)
       EnableEpocheScrolling(true);
       tbEpoches->SetFocus();
       }
-      
-   
 }
 //------------------------------------------------------------------------------
-
 
 

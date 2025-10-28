@@ -1456,4 +1456,11 @@ object formEpoches: TformEpoches
       00FFFFFF000000000000000000FFFFFF00000000000000000000000000000000
       000000000000}
   end
+  object ClipTimer: TTimer
+    Enabled = False
+    Interval = 500
+    OnTimer = ClipTimerTimer
+    Left = 16
+    Top = 208
+  end
 end

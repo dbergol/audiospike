@@ -88,6 +88,7 @@ struct SWSMPHWChannel {
       unsigned int   m_nHWIndex;
       TChannelType   m_tct;
       bool           m_bRawOutput;
+      bool           m_bInverted;
 };
 //------------------------------------------------------------------------------
 
@@ -116,9 +117,11 @@ class SWSMPHWChannels {
       bool IsOutputRaw(unsigned int nIndex);
       bool IsTrigger(unsigned int nIndex, TChannelDir cd);
       bool IsElectrode(unsigned int nIndex);
+      bool IsInputInverted(unsigned int nIndex);
       bool IsProbeMic(unsigned int nIndex);
       bool IsMonitor(unsigned int nIndex);
       void SetOutputRaw(unsigned int nIndex, bool b);
+      void SetInputInverted(unsigned int nIndex, bool b);
       std::vector<int > GetOutputs();
       std::vector<int > GetOutputIndices();
       std::vector<int > GetElectrodes();
@@ -127,6 +130,7 @@ class SWSMPHWChannels {
       std::vector<int > GetProbeMicIndices();
       bool SetOutputs(std::vector<int > &rvi);
       bool SetOutputsRaw(std::vector<int > &rvi);
+      bool SetInputsInverted(std::vector<int > &rvi);
       bool SetElectrodes(std::vector<int > &rvi);
       bool SetProbeMics(std::vector<int > &rvi);
       int  GetMonitor();

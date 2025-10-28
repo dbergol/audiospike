@@ -827,13 +827,6 @@ inherited formEpocheWindow: TformEpocheWindow
     Left = 752
     Top = 48
   end
-  object ClipTimer: TTimer
-    Enabled = False
-    Interval = 10
-    OnTimer = ClipTimerTimer
-    Left = 680
-    Top = 48
-  end
   object EpocheScrollTimer: TTimer
     Interval = 10
     OnTimer = EpocheScrollTimerTimer

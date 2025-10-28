@@ -104,6 +104,7 @@ class TSWEpoches
       int            m_nFirstTriggerError;
       UnicodeString  m_usTriggerError;
       std::vector<double >    m_vdThreshold;
+      std::vector<bool >      m_vbInverted;
 
       TSWEpoches();
       ~TSWEpoches();

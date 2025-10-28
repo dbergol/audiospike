@@ -44,7 +44,7 @@ object formSettings: TformSettings
     Top = 0
     Width = 545
     Height = 730
-    ActivePage = tsGeneral
+    ActivePage = tsSound
     Align = alLeft
     Anchors = [akLeft, akTop, akRight, akBottom]
     TabOrder = 2
@@ -62,13 +62,13 @@ object formSettings: TformSettings
         TabOrder = 0
         object gbPSTHWindow: TGroupBox
           Left = 0
-          Top = 323
+          Top = 347
           Width = 537
           Height = 61
           Align = alTop
           Caption = 'PSTH-Window'
           TabOrder = 0
-          ExplicitTop = 300
+          ExplicitTop = 323
           object Label1: TLabel
             Left = 294
             Top = 27
@@ -98,13 +98,13 @@ object formSettings: TformSettings
           Left = 0
           Top = 0
           Width = 537
-          Height = 227
+          Height = 251
           Align = alTop
           Caption = 'Program settings'
           TabOrder = 1
           object lbStyle: TLabel
             Left = 8
-            Top = 202
+            Top = 224
             Width = 28
             Height = 13
             Caption = 'Style:'
@@ -138,12 +138,12 @@ object formSettings: TformSettings
             Top = 80
             Width = 190
             Height = 17
-            Caption = 'Allow Multiple Audiospike Instances'
+            Caption = 'Allow multiple AudioSpike instances'
             TabOrder = 0
           end
           object cbSaveMAT: TCheckBox
             Left = 9
-            Top = 104
+            Top = 126
             Width = 179
             Height = 17
             Caption = 'Always save additional MAT file'
@@ -151,7 +151,7 @@ object formSettings: TformSettings
           end
           object cbFreeWindows: TCheckBox
             Left = 9
-            Top = 176
+            Top = 198
             Width = 179
             Height = 17
             Caption = 'Free subwindow positions'
@@ -160,7 +160,7 @@ object formSettings: TformSettings
           end
           object cbSaveProbeMic: TCheckBox
             Left = 9
-            Top = 128
+            Top = 150
             Width = 275
             Height = 17
             Caption = 'Save probe microphone audio data (in-situ)'
@@ -168,7 +168,7 @@ object formSettings: TformSettings
           end
           object cbStartupInSitu: TCheckBox
             Left = 9
-            Top = 152
+            Top = 174
             Width = 179
             Height = 17
             Caption = 'Start in In-Situ-Mode'
@@ -176,7 +176,7 @@ object formSettings: TformSettings
           end
           object cbStyle: TComboBox
             Left = 166
-            Top = 199
+            Top = 221
             Width = 235
             Height = 21
             Style = csDropDownList
@@ -198,19 +198,27 @@ object formSettings: TformSettings
             Top = 57
             Width = 384
             Height = 17
-            Caption = 'Check for Updates on Startup (once per day)'
+            Caption = 'Check for updates on startup (once per day)'
             TabOrder = 7
+          end
+          object cbAutoSave: TCheckBox
+            Left = 9
+            Top = 103
+            Width = 208
+            Height = 17
+            Caption = 'Autosave complete measurements'
+            TabOrder = 8
           end
         end
         object gbGeneral: TGroupBox
           Left = 0
-          Top = 227
+          Top = 251
           Width = 537
           Height = 96
           Align = alTop
           Caption = 'Directories'
           TabOrder = 2
-          ExplicitTop = 204
+          ExplicitTop = 227
           object lblTemplatePath: TLabel
             Left = 8
             Top = 27
@@ -271,13 +279,13 @@ object formSettings: TformSettings
         end
         object gbSpikes: TGroupBox
           Left = 0
-          Top = 384
+          Top = 408
           Width = 537
           Height = 117
           Align = alTop
           Caption = 'Spikes'
           TabOrder = 3
-          ExplicitTop = 361
+          ExplicitTop = 384
           object lbU1: TLabel
             Left = 294
             Top = 27
@@ -353,13 +361,13 @@ object formSettings: TformSettings
         end
         object gbSeacrh: TGroupBox
           Left = 0
-          Top = 501
+          Top = 525
           Width = 537
           Height = 169
           Align = alTop
           Caption = 'Free Search Mode'
           TabOrder = 4
-          ExplicitTop = 478
+          ExplicitTop = 501
           object lbU3: TLabel
             Left = 294
             Top = 27
@@ -569,6 +577,7 @@ object formSettings: TformSettings
           Align = alClient
           Caption = 'Electrode Input'
           TabOrder = 1
+          ExplicitLeft = 2
           object lvInput: TListView
             Left = 2
             Top = 15
@@ -592,6 +601,10 @@ object formSettings: TformSettings
               item
                 Caption = 'Band-Pass'
                 Width = 200
+              end
+              item
+                Caption = 'Flip Polarity'
+                Width = 100
               end>
             ReadOnly = True
             RowSelect = True
@@ -1066,6 +1079,10 @@ object formSettings: TformSettings
     object miRemoveInputBandPass: TMenuItem
       Caption = 'Remove Band-Pass'
       OnClick = miRemoveInputBandPassClick
+    end
+    object miFlipInputPolarity: TMenuItem
+      Caption = 'Flip input polarity'
+      OnClick = miFlipInputPolarityClick
     end
   end
   object mnuInSitu: TPopupMenu

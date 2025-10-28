@@ -176,6 +176,7 @@ void TformSettings::ReadSettings()
 
    cbCheckUpdateOnStartup->Checked     = formSpikeWare->m_pIni->ReadBool("Settings", "CheckUpdateOnStartup", true);
    cbMultipleInstancesAllowed->Checked = formSpikeWare->m_pIni->ReadBool("Settings", "MulipleInstanceAllowed", false);
+   cbAutoSave->Checked                 = formSpikeWare->m_pIni->ReadBool("Settings", "AutoSave", false);
    cbSaveMAT->Checked                  = formSpikeWare->m_pIni->ReadBool("Settings", "SaveMATFile", false);
    cbSaveProbeMic->Checked             = formSpikeWare->m_pIni->ReadBool("Settings", "SaveProbeMic", false);
    cbStartupInSitu->Checked            = formSpikeWare->m_pIni->ReadBool("Settings", "StartupInSitu", false);
@@ -299,7 +300,10 @@ void TformSettings::ReadSettings()
          {
 
          if (formSpikeWare->m_smp.m_swcHWChannels.IsElectrode(n))
+            {
             lvInput->Items->Item[(int)n]->Checked = true;
+            lvInput->Items->Item[(int)n]->SubItems->Strings[3] = formSpikeWare->m_smp.m_swcHWChannels.IsInputInverted(n);
+            }
          }
       }
    __finally
@@ -333,6 +337,8 @@ void TformSettings::WriteSettings(bool bNoSoundSettings, bool bShowError)
 {
    formSpikeWare->m_pIni->WriteBool("Settings", "CheckUpdateOnStartup", cbCheckUpdateOnStartup->Checked);
    formSpikeWare->m_pIni->WriteBool("Settings", "MulipleInstanceAllowed", cbMultipleInstancesAllowed->Checked);
+   formSpikeWare->m_pIni->WriteBool("Settings", "AutoSave", cbAutoSave->Checked);
+   formSpikeWare->m_pIni->WriteBool("Settings", "SaveMATFile", cbSaveMAT->Checked);
    formSpikeWare->m_pIni->WriteBool("Settings", "SaveMATFile", cbSaveMAT->Checked);
    formSpikeWare->m_pIni->WriteBool("Settings", "SaveProbeMic", cbSaveProbeMic->Checked);
    formSpikeWare->m_pIni->WriteBool("Settings", "StartupInSitu", cbStartupInSitu->Checked);
@@ -463,7 +469,10 @@ void TformSettings::WriteSettings(bool bNoSoundSettings, bool bShowError)
       for (n = 0; n < lvInput->Items->Count; n++)
          {
          if (lvInput->Items->Item[n]->Checked)
+            {
             formSpikeWare->m_smp.m_swcHWChannels.SetChannelType(n, AS_SMP_ELECTRODE, SWSMPHWCDIR_IN);
+            formSpikeWare->m_smp.m_swcHWChannels.SetInputInverted((unsigned int)n, InputIsInverted(lvInput->Items->Item[n]));
+            }
          }
       formSpikeWare->m_smp.m_swcHWChannels.SetTrigger(cbTriggerIn->ItemIndex, SWSMPHWCDIR_IN);
       formSpikeWare->m_smp.m_swcHWChannels.SetTrigger(cbTriggerOut->ItemIndex, SWSMPHWCDIR_OUT);
@@ -574,6 +583,9 @@ void TformSettings::ReadChannels()
             pli->SubItems->Add(DoubleToStr((double)f1) + " - " + DoubleToStr((double)f2));
          else
             pli->SubItems->Add("");
+         // inverted
+         pli->SubItems->Add("");
+
          }
       AdjustInternalNames(lvInput);
       AdjustInternalNames(plv);
@@ -599,6 +611,18 @@ bool TformSettings::OutputIsRaw(TListItem* pli)
       else
          b = !IsDouble(pli->SubItems->Strings[2]);
       }
+   return b;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// checks if channel in passed TListItem is in inverted mode
+//------------------------------------------------------------------------------
+bool TformSettings::InputIsInverted(TListItem* pli)
+{
+   bool b = false;
+   if (pli)
+      b = pli->SubItems->Strings[3] == "1";
    return b;
 }
 //------------------------------------------------------------------------------
@@ -928,8 +952,11 @@ void __fastcall TformSettings::mnuOutputPopup(TObject *Sender)
 #pragma argsused
 void __fastcall TformSettings::mnuInputPopup(TObject *Sender)
 {
+   bool bSelected = lvInput->SelCount == 1 && lvInput->Selected->Checked;
    miSetInputBandPass->Enabled     = lvInput->SelCount == 1;
    miRemoveInputBandPass->Enabled  = miSetInputBandPass->Enabled;
+   miFlipInputPolarity->Enabled    = bSelected;
+   miFlipInputPolarity->Checked    = InputIsInverted(lvInput->Selected);
 }
 //------------------------------------------------------------------------------
 
@@ -1447,4 +1474,27 @@ void __fastcall TformSettings::cbStyleChange(TObject *Sender)
    cbStyle->Tag = 1;
 }
 //------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// OnClick callback of miFlipInputPolarity. togges 'flip polarity'
+//------------------------------------------------------------------------------
+#pragma argsused
+void __fastcall TformSettings::miFlipInputPolarityClick(TObject *Sender)
+{
+   int n = lvInput->ItemIndex;
+   if (n > -1)
+      {
+      bool b = !formSpikeWare->m_smp.m_swcHWChannels.IsInputInverted((unsigned int)n);
+      miFlipInputPolarity->Checked = b;
+      lvInput->Items->Item[n]->SubItems->Strings[3] = b ? "1" : "0";
+
+      formSpikeWare->m_smp.m_swcHWChannels.SetInputInverted((unsigned int)n, b);
+
+      // write settings without showing error
+      WriteSettings(false, false);
+
+      ReadSettings();
+      }
+}
+//---------------------------------------------------------------------------
 

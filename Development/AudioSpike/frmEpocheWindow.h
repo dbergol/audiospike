@@ -59,7 +59,6 @@ class TformEpocheWindow : public TformASUI
       TImageList *il1;
       TToolButton *btnChannels;
       TTimer *Timer;
-      TTimer *ClipTimer;
       TToolButton *ToolButton1;
       TCheckBox *cbEpocheThreshold;
       TCheckBox *cbAllAxis;
@@ -76,7 +75,6 @@ class TformEpocheWindow : public TformASUI
       void __fastcall FormMouseWheel(TObject *Sender, TShiftState Shift, int WheelDelta,
              TPoint &MousePos, bool &Handled);
       void __fastcall TimerTimer(TObject *Sender);
-      void __fastcall ClipTimerTimer(TObject *Sender);
       void __fastcall tbEpochesChange(TObject *Sender);
       void __fastcall tbEpochesEnter(TObject *Sender);
       void __fastcall EpocheScrollTimerTimer(TObject *Sender);
@@ -87,7 +85,6 @@ class TformEpocheWindow : public TformASUI
    public:		// Benutzer-Deklarationen
       unsigned int m_nPlotIndex;
       std::vector<TformEpoches*>       m_vpformEpoches;
-      std::vector<bool >               m_vbClip;
       __fastcall TformEpocheWindow(TComponent* Owner, TMenuItem* pmi);
       __fastcall ~TformEpocheWindow();
       void Clear();
@@ -99,9 +96,10 @@ class TformEpocheWindow : public TformASUI
       void UpdateThreshold(unsigned int nChannel, double dThreshold);
       void SetEvalWindow(TformEpoches* pfrm);
       void SetAllAxis(TformEpoches* pfrm, bool bLeft, bool bForce = false);
-      void ShowClipping(std::vector<bool > &rvb);
+      void ShowClipping(unsigned int nChannel);
       void ResetClipping();
       void EnableEpocheScrolling(bool bEnable);
+
 };
 //------------------------------------------------------------------------------
 #endif

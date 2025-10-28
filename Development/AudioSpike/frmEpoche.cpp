@@ -70,6 +70,7 @@ __fastcall TformEpoches::TformEpoches(TComponent* Owner, int nChannelIndex)
    csStimSeries->X1 = 0;
 
    m_nPlotCounter = 0;
+   ClipTimer->Interval = (unsigned int)formSpikeWare->m_pIni->ReadInteger("Settings", "ClipReleaseIn", 200);
 }
 //------------------------------------------------------------------------------
 
@@ -475,4 +476,27 @@ void __fastcall TformEpoches::tbnListenClick(TObject *Sender)
 }
 //------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------
+// sets clip indicator to red and enebales ClipTimer for resetting it (if not already
+// running)
+//------------------------------------------------------------------------------
+void TformEpoches::ShowClipping(void)
+{
+   if (ClipTimer->Enabled)
+      return;
+   shClip->Brush->Color = clRed;
+   ClipTimer->Enabled = true;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// Timer callback of ClipTimer: resets clip indicator
+//------------------------------------------------------------------------------
+#pragma argsused
+void __fastcall TformEpoches::ClipTimerTimer(TObject *Sender)
+{
+   ClipTimer->Enabled = false;
+   shClip->Brush->Color = clLime;
+}
+//---------------------------------------------------------------------------
 

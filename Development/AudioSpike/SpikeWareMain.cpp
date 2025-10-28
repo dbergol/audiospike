@@ -103,6 +103,7 @@ __fastcall TformSpikeWare::TformSpikeWare(TComponent* Owner)
       m_bForceReloadMeasurement(false),
       m_nLastLoadMode(SWLM_NONE),
       m_gs(SWGS_NONE),
+      m_fInputClippingLimit(0.9f),
       m_pformSearchFree(NULL),
       m_pformBatch(NULL),
       m_pformSearch(NULL),
@@ -126,6 +127,7 @@ __fastcall TformSpikeWare::TformSpikeWare(TComponent* Owner)
       m_nStimPlayIndex(-1),
       m_bUpdateStimulusDisplay(false),
       m_bDataAppended(false),
+      m_bAutoSave(false),
       m_bSaveMAT(false),
       m_bSaveProbeMic(true),
       m_bStartupInSitu(false),
@@ -493,6 +495,8 @@ void TformSpikeWare::StoreFormPos(TForm* pfrm)
       {
       int nLeft   = pfrm->Left > 0 ? pfrm->Left : 0;
       int nTop    = pfrm->Top  > 0 ? pfrm->Top  : 0;
+
+
       m_pIni->WriteInteger(usSection, "Left", nLeft);
       m_pIni->WriteInteger(usSection, "Top", nTop);
       m_pIni->WriteInteger(usSection, "Height", pfrm->Height);
@@ -523,10 +527,12 @@ void TformSpikeWare::RestoreFormPos(TForm* pfrm)
       usDefault = usSection.SubString(1, nPos) ;
    usDefault += ".";
 
-   pfrm->Left   = m_pIni->ReadInteger(usSection, "Left",   m_pIni->ReadInteger("Defaults", usDefault+"Left",   0));
-   pfrm->Top    = m_pIni->ReadInteger(usSection, "Top",    m_pIni->ReadInteger("Defaults", usDefault+"Top",   0));
+   // NOTE: something was changed in VCL: we have to set height and width BEFORE left and top (at least in MDI mode)
    pfrm->Height = m_pIni->ReadInteger(usSection, "Height", m_pIni->ReadInteger("Defaults", usDefault+"Height",   400));
    pfrm->Width  = m_pIni->ReadInteger(usSection, "Width",  m_pIni->ReadInteger("Defaults", usDefault+"Width",   400));
+   pfrm->Left   = m_pIni->ReadInteger(usSection, "Left",   m_pIni->ReadInteger("Defaults", usDefault+"Left",   0));
+   pfrm->Top    = m_pIni->ReadInteger(usSection, "Top",    m_pIni->ReadInteger("Defaults", usDefault+"Top",   0));
+
 
    if (pfrm == this)
       {
@@ -657,6 +663,13 @@ void TformSpikeWare::ReadSettings()
       m_usTemplatePath     = m_pIni->ReadString("Settings", "TemplatePath", ExpandFileName(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "..\\Templates\\"));
    else
       m_usTemplatePath     = m_pIni->ReadString("Settings", "LastTemplatePath", ExpandFileName(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "..\\Templates\\"));
+
+   int nInputClippingLimitdB = m_pIni->ReadInteger("Settings", "InputClippingLimit", -3);
+   if (nInputClippingLimitdB > -1)
+      nInputClippingLimitdB = -1;
+   m_fInputClippingLimit   = (float)dBToFactor((double)nInputClippingLimitdB);
+
+   m_bAutoSave          = m_pIni->ReadBool("Settings", "AutoSave", false);
    m_bSaveMAT           = m_pIni->ReadBool("Settings", "SaveMATFile", false);
 
    m_bSaveProbeMic      = m_pIni->ReadBool("Settings", "SaveProbeMic", true);
@@ -1625,6 +1638,7 @@ void TformSpikeWare::LoadEpoches(TEpocheLoadMode nELM)
       throw Exception("Invalid Epoches in XML result");
 
    vvf vvfData(nChannelsIn, std::valarray<float>(nSamples));
+
 
    TFileStream *pfs = NULL;
    TSWEpoche* pswe = NULL;
@@ -2683,6 +2697,10 @@ TSWRunResult TformSpikeWare::RunMeasurement(bool bResume)
             m_sweEpoches.DoneSave();
             SetGUIStatus(SWGS_STOP);
             swrr = SWRR_DONE;
+
+            // autosave
+            if (m_bAutoSave)
+               SaveResult();
             }
          else
             swrr = SWRR_PAUSE;
@@ -3238,7 +3256,7 @@ void TformSpikeWare::SMPPostVSTProc(vvf &vvfBuffers)
 {
    try
       {
-      // clip detector for
+      // clip detector for output
       if (formSpikeWare->m_bFreeSearchRunning || formSpikeWare->m_smp.m_nCalibrate)
          formSpikeWare->m_smp.SoundClipDetector(vvfBuffers);
       }
@@ -3261,22 +3279,34 @@ void TformSpikeWare::SMPPostVSTProcMaxSearch(vvf &vvfBuffers)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// SMP processing callback BEFORE recodring (!) VST plugins. Updates recording
+/// SMP processing callback BEFORE recording (!) VST plugins. Updates recording
 /// clip indicators
 //------------------------------------------------------------------------------
 void TformSpikeWare::SMPRecPreVSTProc(vvf &vvfBuffers)
 {
    try
       {
-      // create vector with booleans for clipping
-      std::vector<bool > vb;
+      if (!formSpikeWare->FormsCreated())
+         return;
 
       unsigned int n;
+      unsigned int nElectrode = 0;
+      UnicodeString us;
       for (n = 0; n < vvfBuffers.size(); n++)
-         vb.push_back(vvfBuffers[n].max() >= 1.0f || vvfBuffers[n].min() <= -1.0f);
+         {
+         // only check electrode channels!
+         if (!formSpikeWare->m_smp.m_swcUsedChannels.IsElectrode(n))
+            continue;
+         // NOTE: we define  -XdB rel fullscale as clipping to take detect
+         // very short peaks as well..... X = m_fInputClippingLimit is set
+         // from Inifile in ReadSettings, maximum allowed value is -1 dB
+         // NOTE: m_fInputClippingLimit is already converted to linear value!
+         if (  vvfBuffers[n].max() >= formSpikeWare->m_fInputClippingLimit
+            || vvfBuffers[n].min() <= -formSpikeWare->m_fInputClippingLimit)
+            formSpikeWare->m_pformEpoches->ShowClipping(nElectrode);
 
-      if (formSpikeWare->FormsCreated())
-         formSpikeWare->m_pformEpoches->ShowClipping(vb);
+         nElectrode++;
+         }
       }
    catch (Exception &e)
       {

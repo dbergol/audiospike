@@ -174,6 +174,7 @@ void  TSWEpoches::Initialize(unsigned int nNumChannels, unsigned int nSize)
 
    m_vvfEpoche.resize(nNumChannels);
    m_vdThreshold.resize(nNumChannels);
+   m_vbInverted.resize(nNumChannels);
    unsigned int nChannel;
    for (nChannel = 0; nChannel < nNumChannels; nChannel++)
       m_vvfEpoche[nChannel].resize(nSize);
@@ -371,7 +372,6 @@ TSWEpoche* TSWEpoches::Push(  vvf& rvvfData,
                               nRepetitionIndex,
                               rvdThreshold,
                               formSpikeWare->m_usResultPath + "epoches.pcm");
-
 
          pswe->m_nIndex = m_nEpochesTotal++;
          unsigned int n, m;
@@ -644,6 +644,9 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                   if (!formSpikeWare->m_smp.m_swcUsedChannels.IsElectrode(nChannel))
                      continue;
 
+                  // store/update inverted flag
+                  m_vbInverted[nEpocheChannel] = formSpikeWare->m_smp.m_swcUsedChannels.IsInputInverted(nChannel);
+
                   #ifdef CHKCHNLS
                   us2 += IntToStr((int)nChannel) + ", ";
                   if (nChannel != nTriggerChannel)
@@ -652,7 +655,6 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
 
                   CopyMemory(&m_vvfEpoche[nEpocheChannel++][(unsigned int)m_nRecEpochePos], &vvfBuffers[nChannel][nSourceStartSample], nNumCopySamples*sizeof(float));
                   }
-
                if (formSpikeWare->IsInSitu() && formSpikeWare->m_smp.m_bSaveProbeMics)
                   {
 
@@ -687,9 +689,18 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                   unsigned int nRepetitionIndex = 0;
                   if (formSpikeWare->m_viRepetitionSequence.size() > m_nEpochesTotal)
                      nRepetitionIndex = (unsigned int)formSpikeWare->m_viRepetitionSequence[m_nEpochesTotal];
-                  Push(m_vvfEpoche, formSpikeWare->GetThresholds(), formSpikeWare->GetCurrentStimulus(m_nEpochesTotal), nRepetitionIndex);
 
                   unsigned int m;
+                  for (m = 0; m < m_vvfEpoche.size(); m++)
+                     {
+                     // invert epoche data if corresponding option is set for channel!
+                     if (m_vbInverted[m])
+                        m_vvfEpoche[m] *= -1.0f;
+                     }
+
+                  Push(m_vvfEpoche, formSpikeWare->GetThresholds(), formSpikeWare->GetCurrentStimulus(m_nEpochesTotal), nRepetitionIndex);
+
+                  // to be sure: clear epoche data again
                   for (m = 0; m < m_vvfEpoche.size(); m++)
                      m_vvfEpoche[m] = 0.0f;
 

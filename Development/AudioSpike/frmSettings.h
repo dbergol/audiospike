@@ -168,6 +168,8 @@ class TformSettings : public TForm
       TPanel *pnlGeneral;
       TPanel *pnlSound;
       TCheckBox *cbCheckUpdateOnStartup;
+      TCheckBox *cbAutoSave;
+      TMenuItem *miFlipInputPolarity;
       void __fastcall FormShow(TObject *Sender);
       void __fastcall cbDriversChange(TObject *Sender);
       void __fastcall lvOutputAdvancedCustomDrawItem(TCustomListView *Sender, TListItem *Item,
@@ -212,6 +214,7 @@ class TformSettings : public TForm
       void __fastcall cbStyleChange(TObject *Sender);
       void __fastcall miRawOutputClick(TObject *Sender);
       void __fastcall miRawOutputInSituClick(TObject *Sender);
+      void __fastcall miFlipInputPolarityClick(TObject *Sender);
 
    private:	// Benutzer-Deklarationen
       void     WriteSettingsName(UnicodeString us);
@@ -224,6 +227,7 @@ class TformSettings : public TForm
       void     ScrollOutputs(int n);
       void     SetProbeMicCalStatus(TListItem *pli);
       bool     OutputIsRaw(TListItem* pli);
+      bool     InputIsInverted(TListItem* pli);
    public:		// Benutzer-Deklarationen
       __fastcall TformSettings(TComponent* Owner);
       __fastcall ~TformSettings();

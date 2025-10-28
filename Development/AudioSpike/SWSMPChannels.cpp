@@ -106,6 +106,7 @@ void SWSMPHWChannels::Add(UnicodeString usName, TChannelDir cd)
    swc.m_tct      = AS_SMP_NONE;
    swc.m_nHWIndex = (unsigned int)m_vvswcChannels[cd].size();
    swc.m_bRawOutput = false;
+   swc.m_bInverted  = false;
 
    m_vvswcChannels[cd].push_back(swc);
 }
@@ -163,6 +164,17 @@ bool SWSMPHWChannels::IsElectrode(unsigned int nIndex)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// returns if an output channel is in 'raw' mode
+//------------------------------------------------------------------------------
+bool SWSMPHWChannels::IsInputInverted(unsigned int nIndex)
+{
+   if (nIndex < m_vvswcChannels[SWSMPHWCDIR_IN].size())
+      return m_vvswcChannels[SWSMPHWCDIR_IN][nIndex].m_bInverted;
+   return false;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 /// returns if a channel is a probe microphone channel 
 //------------------------------------------------------------------------------
 bool SWSMPHWChannels::IsProbeMic(unsigned int nIndex)
@@ -190,6 +202,17 @@ void SWSMPHWChannels::SetOutputRaw(unsigned int nIndex, bool b)
       m_vvswcChannels[SWSMPHWCDIR_OUT][nIndex].m_bRawOutput = b;
 }
 //------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// Sets 'inverted input' flag for a channel
+//------------------------------------------------------------------------------
+void SWSMPHWChannels::SetInputInverted(unsigned int nIndex, bool b)
+{
+   if (nIndex < m_vvswcChannels[SWSMPHWCDIR_IN].size())
+      m_vvswcChannels[SWSMPHWCDIR_IN][nIndex].m_bInverted = b;
+}
+//------------------------------------------------------------------------------
+
 
 //------------------------------------------------------------------------------
 /// returns if an output channel is in 'raw' mode
@@ -350,6 +373,25 @@ bool SWSMPHWChannels::SetOutputsRaw(std::vector<int > &rvi)
    // then set passed channels
    for (n = 0; n < rvi.size(); n++)
       SetOutputRaw((unsigned int)rvi[n], true);
+   return true;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// sets mode of all passed input electrode channels to 'inverted'
+//------------------------------------------------------------------------------
+bool SWSMPHWChannels::SetInputsInverted(std::vector<int > &rvi)
+{
+   // switch OFF raw for all channels before
+   unsigned int n;
+   for (n = 0; n < m_vvswcChannels[SWSMPHWCDIR_IN].size(); n++)
+      {
+      if (IsElectrode(n))
+         SetInputInverted(n, false);
+      }
+   // then set passed channels
+   for (n = 0; n < rvi.size(); n++)
+      SetInputInverted((unsigned int)rvi[n], true);
    return true;
 }
 //------------------------------------------------------------------------------
