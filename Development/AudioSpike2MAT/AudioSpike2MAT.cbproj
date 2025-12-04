@@ -93,6 +93,8 @@
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <VerInfo_Locale>1033</VerInfo_Locale>
+        <Manifest_File>(Ohne)</Manifest_File>
+        <AppDPIAwarenessMode>none</AppDPIAwarenessMode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64x)'!=''">
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
@@ -125,8 +127,6 @@
         <LinkPackageImports>rtl.bpi;vcl.bpi;xmlrtl.bpi;soaprtl.bpi;inet.bpi;dbrtl.bpi;dsnap.bpi;vcldb.bpi</LinkPackageImports>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
-        <Manifest_File>(Ohne)</Manifest_File>
-        <AppDPIAwarenessMode>none</AppDPIAwarenessMode>
         <FinalOutputDir>..\..\bin64</FinalOutputDir>
         <IntermediateOutputDir>obj64</IntermediateOutputDir>
     </PropertyGroup>

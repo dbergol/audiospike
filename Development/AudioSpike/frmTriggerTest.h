@@ -34,6 +34,9 @@
 #include <Vcl.Controls.hpp>
 #include <Vcl.ExtCtrls.hpp>
 #include <Vcl.StdCtrls.hpp>
+#include <System.ImageList.hpp>
+#include <Vcl.ImgList.hpp>
+#include "SpikeWareMain.h"
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
@@ -42,18 +45,29 @@
 class TformTriggerTest : public TForm
 {
    __published:	// IDE-verwaltete Komponenten
-      TListView *lv;
+      TListView *lvTop;
       TButton *btnOk;
       TTimer *Timer;
-      void __fastcall btnOkClick(TObject *Sender);
+      TListView *lvBottom;
+      TImageList *il;
+      TButton *btnCancel;
+      TGroupBox *gbTriggerTest;
+      TGroupBox *gbTriggerValues;
+      TComboBox *cobTriggerThreshold;
+      TComboBox *cobTriggerValue;
       void __fastcall TimerTimer(TObject *Sender);
+      void __fastcall cobTriggerValueChange(TObject *Sender);
+      void __fastcall cobTriggerThresholdChange(TObject *Sender);
    private:	// Benutzer-Deklarationen
       int   m_nTriggersPlayed;
       int   m_nTriggersDetected;
       bool  m_bRunning;
+      TSWGuiStatus m_gs;
    public:		// Benutzer-Deklarationen
       __fastcall TformTriggerTest(TComponent* Owner);
       void TriggerTest(UnicodeString usOut, UnicodeString usIn);
+      void InitTriggerTest(void);
+      void ExitTriggerTest(void);
 };
 //------------------------------------------------------------------------------
 extern PACKAGE TformTriggerTest *formTriggerTest;

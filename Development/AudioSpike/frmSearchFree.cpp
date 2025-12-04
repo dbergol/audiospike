@@ -80,10 +80,6 @@ void __fastcall TformSearchFree::ShowFreeSearch()
       {
       int n;
       int nNumOutputs = (int)formSpikeWare->m_smp.m_swcUsedChannels.GetOutputs().size();
-      #ifdef CHKCHNLS
-      if (nNumOutputs != (int)formSpikeWare->m_smp.m_viChannelsOutSettings.size())
-         ShowMessage("error B " + UnicodeString(__FUNC__));
-      #endif
       for (n = 0; n < nNumOutputs; n++)
          {
          m_pfrmSelectChannels->clb->Items->Add("Channel " + IntToStr((int)n+1));
@@ -213,23 +209,8 @@ bool TformSearchFree::SetValues()
       unsigned int n;
       double dGain, dCal;
 
-
-      #ifdef CHKCHNLS
-      // determine total number of outputs: all channels + trigger channel
-      unsigned int nNum = (unsigned int)formSpikeWare->m_smp.m_swcUsedChannels.GetOutputs().size() + 1;
-      if (formSpikeWare->m_smp.m_nMonitorChannelOutIndex >= 0)
-         nNum++;
-
-      unsigned int nNum2 = (unsigned int)formSpikeWare->m_smp.m_viChannelsOutSettings.size() + 1;
-      if (formSpikeWare->m_smp.m_nMonitorChannelOut >= 0)
-         nNum2++;
-      if (formSpikeWare->m_smp.m_swcUsedChannels.GetOutputs().size() != formSpikeWare->m_smp.m_viChannelsOutSettings.size())
-         ShowMessage("error A " + UnicodeString(__FUNC__));
-      if (nNum != nNum2)
-         ShowMessage("error A " + UnicodeString(__FUNC__));
-      #endif
-
       // loop through all current outputs
+      UnicodeString usNonCalibratedChannels, us;
       for (n = 0; n < formSpikeWare->m_smp.m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_OUT].size(); n++)
          {
          if (!formSpikeWare->m_smp.m_swcUsedChannels.IsOutput(n))
@@ -239,12 +220,12 @@ bool TformSearchFree::SetValues()
             dGain = 1.0;
          else
             {
-            dCal = formSpikeWare->m_smp.GetCalibrationValue(formSpikeWare->m_smp.m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_OUT][n].m_usName);
+            us = formSpikeWare->m_smp.m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_OUT][n].m_usName;
+            dCal = formSpikeWare->m_smp.GetCalibrationValue(us);
             if (dCal == 0.0)
                {
-               formSpikeWare->m_smp.Stop();
-               formSpikeWare->SWErrorBox("One or more calibration values missing (see settings)", Handle);
-               return false;
+               usNonCalibratedChannels.sprintf(L"%ls\n - %ls", usNonCalibratedChannels.w_str(), us.w_str());
+               continue;
                }
             dGain    = dBToFactor((double)m_fGain - dCal - dRMS);
             }
@@ -252,6 +233,14 @@ bool TformSearchFree::SetValues()
          usValue += DoubleToStr(dGain) + ",";
          usOutput+= IntToStr((int)n) + ",";
          }
+
+         if (usNonCalibratedChannels != "")
+            {
+            formSpikeWare->m_smp.Stop();
+            formSpikeWare->SWErrorBox("Calibration values missing for the following channels: " + usNonCalibratedChannels, Handle);
+            return false;
+            }
+
       RemoveTrailingDelimiter(usOutput);
       RemoveTrailingDelimiter(usValue);
 
@@ -277,8 +266,8 @@ bool TformSearchFree::SetValues()
    __finally
       {
       formSpikeWare->SetGUIBusy(false, this);
-      btnStart->Enabled    =  formSpikeWare->m_gs == SWGS_FREESEARCHSTOP;
-      btnStop->Enabled    =  formSpikeWare->m_gs == SWGS_FREESEARCHRUN;
+      btnStart->Enabled =  formSpikeWare->m_gs == SWGS_FREESEARCHSTOP;
+      btnStop->Enabled  =  formSpikeWare->m_gs == SWGS_FREESEARCHRUN;
       }
    return true;
 }

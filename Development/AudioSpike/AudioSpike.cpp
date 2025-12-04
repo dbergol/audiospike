@@ -38,34 +38,37 @@
 #include <Vcl.Styles.hpp>
 #include <Vcl.Themes.hpp>
 
-USEFORM("frmVectorStrength.cpp", formVectorStrength);
 USEFORM("frmWait.cpp", formWait);
-USEFORM("frmTriggerTest.cpp", formTriggerTest);
-USEFORM("frmSetParameters.cpp", formSetParameters);
-USEFORM("frmSettings.cpp", formSettings);
-USEFORM("frmSignalPSTH.cpp", formSignalPSTH);
-USEFORM("frmSpikes.cpp", formSpikes);
-USEFORM("frmStimuli.cpp", formStimuli);
 USEFORM("SpikeWareMain.cpp", formSpikeWare);
-USEFORM("frmSelectChannels.cpp", formSelectChannels);
-USEFORM("frame_BubbleData.cpp", frameBubbleData); /* TFrame: File Type */
-USEFORM("frmASUI.cpp", formASUI);
-USEFORM("frmBatch.cpp", formBatch);
-USEFORM("frmBubbleData.cpp", formBubbleData);
-USEFORM("frmBubblePlot.cpp", formBubblePlot);
-USEFORM("formAbout.cpp", AboutBox);
-USEFORM("frmFileSel.cpp", formFileSel);
-USEFORM("frmPSTH.cpp", formPSTH);
-USEFORM("frmSearchFree.cpp", formSearchFree);
-USEFORM("frmSelect.cpp", formSelect);
-USEFORM("frmSelectChannel.cpp", formSelectChannel);
-USEFORM("frmFFTEdit.cpp", formFFTEdit);
-USEFORM("frmCalibration.cpp", formCalibration);
-USEFORM("frmCalibrationCalibrator.cpp", formCalibrationCalibrator);
-USEFORM("frmCluster.cpp", formCluster);
-USEFORM("frmEpoche.cpp", formEpoches);
-USEFORM("frmEpocheWindow.cpp", formEpocheWindow);
 USEFORM("frmVersionCheck.cpp", formVersionCheck);
+USEFORM("frmSpikeSettings.cpp", formSpikeSettings);
+USEFORM("frmSpikes.cpp", formSpikes);
+USEFORM("frmSoundSettings.cpp", formSoundSettings);
+USEFORM("frmVectorStrength.cpp", formVectorStrength);
+USEFORM("frmTriggerTest.cpp", formTriggerTest);
+USEFORM("frmStimuli.cpp", formStimuli);
+USEFORM("frmBatch.cpp", formBatch);
+USEFORM("frmASUI.cpp", formASUI);
+USEFORM("frame_SpikeSettings.cpp", frameSpikeSettings); /* TFrame: File Type */
+USEFORM("frmCalibration.cpp", formCalibration);
+USEFORM("frmBubblePlot.cpp", formBubblePlot);
+USEFORM("frmBubbleData.cpp", formBubbleData);
+USEFORM("frame_BubbleData.cpp", frameBubbleData); /* TFrame: File Type */
+USEFORM("formAbout.cpp", AboutBox);
+USEFORM("frmCalibrationCalibrator.cpp", formCalibrationCalibrator);
+USEFORM("frmSelectChannels.cpp", formSelectChannels);
+USEFORM("frmSelectChannel.cpp", formSelectChannel);
+USEFORM("frmSelect.cpp", formSelect);
+USEFORM("frmSignalPSTH.cpp", formSignalPSTH);
+USEFORM("frmSettings.cpp", formSettings);
+USEFORM("frmSetParameters.cpp", formSetParameters);
+USEFORM("frmSearchFree.cpp", formSearchFree);
+USEFORM("frmEpocheWindow.cpp", formEpocheWindow);
+USEFORM("frmEpoche.cpp", formEpoches);
+USEFORM("frmCluster.cpp", formCluster);
+USEFORM("frmPSTH.cpp", formPSTH);
+USEFORM("frmFileSel.cpp", formFileSel);
+USEFORM("frmFFTEdit.cpp", formFFTEdit);
 //---------------------------------------------------------------------------
 #include "SpikeWareMain.h"
 //---------------------------------------------------------------------------
@@ -104,13 +107,14 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
        Application->Initialize();
        Application->MainFormOnTaskBar = true;
        Application->CreateForm(__classid(TformSpikeWare), &formSpikeWare);
-       Application->CreateForm(__classid(TAboutBox), &AboutBox);
+       Application->CreateForm(__classid(TformSpikeSettings), &formSpikeSettings);
        Application->CreateForm(__classid(TformWait), &formWait);
        Application->CreateForm(__classid(TformTriggerTest), &formTriggerTest);
        Application->CreateForm(__classid(TformFileSel), &formFileSel);
        Application->CreateForm(__classid(TformCalibration), &formCalibration);
        Application->CreateForm(__classid(TformCalibrationCalibrator), &formCalibrationCalibrator);
        Application->CreateForm(__classid(TformFFTEdit), &formFFTEdit);
+       Application->CreateForm(__classid(TAboutBox), &AboutBox);
        if (ParamCount() > 0)
           formSpikeWare->ProcessCommandLine(true);
 

@@ -93,7 +93,6 @@
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <BT_BuildType>Debug</BT_BuildType>
-        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <Manifest_File>(Ohne)</Manifest_File>
         <VerInfo_Locale>1033</VerInfo_Locale>
@@ -116,7 +115,6 @@
         <ILINK_LibraryPath>..\fftw3\lib;..\vstsdk2.4\libc\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
-        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <LinkPackageStatics>vcl.lib;rtl.lib;Tee929.lib;vclimg.lib</LinkPackageStatics>
@@ -163,6 +161,9 @@
             <Form>HtVSTEqAS_version.res</Form>
             <BuildOrder>8</BuildOrder>
         </ResourceCompile>
+        <ResFiles Include="HtVSTEqVisAS.res">
+            <BuildOrder>12</BuildOrder>
+        </ResFiles>
         <LibFiles Include="VSTSDK.a" Condition="'$(Platform)'=='Win64'">
             <BuildOrder>8</BuildOrder>
             <IgnorePath>true</IgnorePath>
@@ -312,6 +313,12 @@
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="..\..\bin64\HtVSTEqVisAS.dll" Configuration="Release" Class="ProjectOutput"/>
+                <DeployFile LocalName="..\..\bin64\HtVSTEqVisAS.dll" Configuration="Release" Class="ProjectOutput">
+                    <Platform Name="Win64">
+                        <RemoteName>HtVSTEqVisAS.dll</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="..\..\bin\HtVSTEqVisAS.dll" Configuration="Release" Class="ProjectOutput"/>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="OSX32">

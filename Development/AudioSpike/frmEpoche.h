@@ -54,8 +54,6 @@ class TformEpoches : public TForm
 {
    friend class TformEpocheWindow;
    __published:	// IDE-verwaltete Komponenten
-      TImageList *il2;
-      TImageList *il1;
       TPanel *pnl;
       TBevel *bvl;
       TToolBar *tb;
@@ -69,7 +67,8 @@ class TformEpoches : public TForm
       TChartShape *csStimSeries;
       TLineSeries *csEpocheThreshold;
       TShape *shClip;
-   TTimer *ClipTimer;
+      TTimer *ClipTimer;
+      TToolButton *tbtnFlipPolarity;
       void __fastcall chrtMouseDown(TObject *Sender, TMouseButton Button, TShiftState Shift,
              int X, int Y);
       void __fastcall chrtMouseLeave(TObject *Sender);
@@ -86,7 +85,8 @@ class TformEpoches : public TForm
       void __fastcall chrtBeforeDrawAxes(TObject *Sender);
       void __fastcall tbtnEvalActiveClick(TObject *Sender);
       void __fastcall tbnListenClick(TObject *Sender);
-   void __fastcall ClipTimerTimer(TObject *Sender);
+      void __fastcall ClipTimerTimer(TObject *Sender);
+      void __fastcall tbtnFlipPolarityClick(TObject *Sender);
 
    private:	// Benutzer-Deklarationen
       CRITICAL_SECTION        m_cs;

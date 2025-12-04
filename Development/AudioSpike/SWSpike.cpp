@@ -34,6 +34,7 @@
 #include "SpikeWareMain.h"
 #include "SWEpoches.h"
 #include <math.h>
+#include <algorithm>
 #include "Encddecd.hpp"
 
 //------------------------------------------------------------------------------
@@ -42,10 +43,8 @@
 
 //------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
-/// CLASS TSWSpikes containing info about multiple spikes with identical
-/// parameters
-//------------------------------------------------------------------------------
+
+
 
 //------------------------------------------------------------------------------
 /// constructor initializes members
@@ -53,14 +52,15 @@
 TSWSpikes::TSWSpikes()
 {
    InitializeCriticalSection(&m_cs);
+   m_nTestFlag = 0;
    m_bInitialized = false;
    m_dSampleRate = 44100.0;
    m_dSampleRateDevider = 1.0;
-   m_nPostThreshold = 0;
-   m_dPostThreshold = 0.0;
+   m_bRejectSingleSignSpikes = false;
    SetNumChannels(1);
 }
 //------------------------------------------------------------------------------
+
 
 //------------------------------------------------------------------------------
 /// destructor, does cleanup
@@ -107,7 +107,7 @@ unsigned int TSWSpikes::GetNumChannels()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// sets numper of channels, only allowed if empty
+/// sets number of channels, only allowed if empty
 //------------------------------------------------------------------------------
 void TSWSpikes::SetNumChannels(unsigned int nNum)
 {
@@ -142,16 +142,89 @@ double TSWSpikes::GetSampleRate()
 void TSWSpikes::SetSampleRate(double dSampleRate, double dSampleRateDevider)
 {
    if (!IsEmpty())
-      throw Exception("Sanplerate cannot be changed if spikes are stored");
+      throw Exception("Samplerate cannot be changed if spikes are stored");
 
    EnterCriticalSection(&m_cs);
    try
       {
       m_dSampleRateDevider = dSampleRateDevider;
       m_dSampleRate     = dSampleRate/dSampleRateDevider;
-      m_nPreThreshold   = (int)(m_dPreThreshold * m_dSampleRate);
-      m_nSpikeLength    = (int)(m_dSpikeLength * m_dSampleRate);
-      m_nPostThreshold  = (int)(m_dPostThreshold * m_dSampleRate);
+
+      // to be sure: recalculate everything for ALL methods
+      unsigned int n;
+      for (n = 0; n < m_sdmDetectionMethods.m_vsdmMethods.size(); n++)
+         m_sdmDetectionMethods.m_vsdmMethods[n]->RecalculatePositionsFromTimes(this);
+      }
+   __finally
+      {
+      LeaveCriticalSection(&m_cs);
+      }
+}
+//------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------
+/// returns spike length in samples
+//------------------------------------------------------------------------------
+unsigned int TSWSpikes::GetSpikeLengthSamples(void)
+{
+   return  m_nSpikeLength;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// returns spike length
+//------------------------------------------------------------------------------
+double TSWSpikes::GetSpikeLength(void)
+{
+   return  m_dSpikeLength;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// sets spike length
+//------------------------------------------------------------------------------
+void TSWSpikes::SetSpikeLength(double dSpikeLength)
+{
+   if (!IsEmpty())
+      throw Exception("SpikeLength cannot be changed if spikes are stored");
+
+   EnterCriticalSection(&m_cs);
+   try
+      {
+      m_dSpikeLength    = dSpikeLength;
+      m_nSpikeLength    = (unsigned int)(m_dSpikeLength * m_dSampleRate);
+
+      // set displayed total peak length in microseconds
+      m_swspSpikePars.SetSpikeLength(m_dSpikeLength * 1000000.0);
+      }
+   __finally
+      {
+      LeaveCriticalSection(&m_cs);
+      }
+}
+//------------------------------------------------------------------------------
+
+// NOTE: the next two methods are sort of "hard coded", but there has to be one
+// point where caller needs to know what he's calling!!
+
+
+//------------------------------------------------------------------------------
+/// sets spikelength and pre- and postthreshold for Version 1
+//------------------------------------------------------------------------------
+void TSWSpikes::SetDetectionMethod1(double dSpikeLength, double dPreThreshold, double dPostThreshold)
+{
+  if (!IsEmpty())
+      throw Exception("DetectionMethod values cannot be changed if spikes are stored");
+
+   EnterCriticalSection(&m_cs);
+   try
+      {
+      m_sdmDetectionMethods.SetMethodIndex(SDM_VERSION_1);
+      SetSpikeLength(dSpikeLength);
+      m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_1]->SetVariable("PreThreshold", dPreThreshold);
+      m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_1]->SetVariable("PostThreshold", dPostThreshold);
+      m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_1]->RecalculatePositionsFromTimes(this);
       }
    __finally
       {
@@ -161,26 +234,25 @@ void TSWSpikes::SetSampleRate(double dSampleRate, double dSampleRateDevider)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// sets pre- and postthreshold and spike length (for analysis)
+/// sets RefractoryTime, RefractoryTimeTailFactor and calculates SpikeLength
+/// for Version 2
 //------------------------------------------------------------------------------
-void TSWSpikes::SetSpikeLength(double dPreThreshold, double dPostThreshold, double dSpikeLength)
+void  TSWSpikes::SetDetectionMethod2(double dRefractoryTime, double dRefractoryTimeTailFactor)
 {
-   if (!IsEmpty())
-      throw Exception("PreThreshold, PostThreshold or SpikeLength cannot be changed if spikes are stored");
+  if (!IsEmpty())
+      throw Exception("DetectionMethod values cannot be changed if spikes are stored");
 
    EnterCriticalSection(&m_cs);
    try
       {
-      m_dPreThreshold   = dPreThreshold;
-      m_dPostThreshold  = dPostThreshold;
-      m_dSpikeLength    = dSpikeLength;
+      m_sdmDetectionMethods.SetMethodIndex(SDM_VERSION_2);
+      m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_2]->SetVariable("RefractoryTime", dRefractoryTime);
+      m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_2]->SetVariable("RefractoryTimeTailFactor", dRefractoryTimeTailFactor);
 
-      m_nPreThreshold   = (int)(m_dPreThreshold*m_dSampleRate);
-      m_nPostThreshold  = (int)(m_dPostThreshold*m_dSampleRate);
-      m_nSpikeLength    = (int)(m_dSpikeLength*m_dSampleRate);
+      // calculate
+      SetSpikeLength((2.0+dRefractoryTimeTailFactor)*dRefractoryTime);
 
-      // set displayed total peak length in microseconds
-      m_swspSpikePars.SetPeakLength(m_dSpikeLength * 1000000.0);
+      m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_2]->RecalculatePositionsFromTimes(this);
       }
    __finally
       {
@@ -225,7 +297,7 @@ unsigned int TSWSpikes::GetNumSpikes(unsigned int nChannelIndex)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// Resets a spike group index for one channel: the group index is a grouping 
+/// Resets a spike group index for one channel: the group index is a grouping
 /// index by selection in a cluster plot (see also frmCluster)
 //------------------------------------------------------------------------------
 void TSWSpikes::SpikeGroupReset(unsigned int nChannelIndex)
@@ -278,6 +350,43 @@ void TSWSpikes::Remove(unsigned int nChannelIndex, unsigned int nEpocheIndex)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// Calls different available spike detection methods
+//------------------------------------------------------------------------------
+unsigned int TSWSpikes::CallSpikeDetectionMethod( TSWSpike* psms,
+                                          std::valarray<double >* pvadEpoche)
+{
+   // set default for refractoryTime
+   unsigned int nRefractoryTime = GetSpikeLengthSamples();
+
+   TSpikeDetectionMethodIndex sdmi = m_sdmDetectionMethods.GetMethodIndex();
+   //---------------------------------------------------------------------------
+   if (sdmi == SDM_VERSION_1)
+      nRefractoryTime = m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_1]->SpikeDetection(this, psms, pvadEpoche);
+   //---------------------------------------------------------------------------
+   // Version 2: "new" AudioSpike Spike Detection Method
+   // More complicated, done in separate function....
+   //---------------------------------------------------------------------------
+   else if (sdmi == SDM_VERSION_2)
+      {
+      nRefractoryTime = m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_2]->SpikeDetection(this, psms, pvadEpoche);
+      }
+   //---------------------------------------------------------------------------
+   else
+      throw Exception("Unknown spike detection method passed to TSWSpikes::CallSpikeDetectionMethod");
+
+   // If corresponding flag is set, reject spikes without a negative Peak+ or
+   // a positive Peak-
+   if (m_bRejectSingleSignSpikes)
+      {
+      if (psms->m_dPeakDA > 0.0 || psms->m_dPeakUA < 0.0)
+         return 0;
+      }
+
+   return nRefractoryTime;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 /// adds spikes from one epoche by threshold evaluation. if a pointer to epoche
 /// audio pcm data is passed, it is used instead of passed epoches data
 //------------------------------------------------------------------------------
@@ -291,39 +400,97 @@ void TSWSpikes::Add(TSWEpoche *pswe, vvd *pvvd)
    try
       {
       unsigned int n, nChannel;
-      // use fix PostThreshold if set at all
-      unsigned int nPostThreshold = (unsigned int)m_nPostThreshold;
-      // otherwise use spikelength and prethreshold to calculate it
-      if (!nPostThreshold)
-         nPostThreshold =(unsigned int)( m_nSpikeLength - m_nPreThreshold);
-      unsigned int nSize = (unsigned int)vvdData[0].size();
-      unsigned int nStopLoop = nSize - (unsigned int)(m_nSpikeLength - m_nPreThreshold);
+      unsigned int nStopLoop = (unsigned int)vvdData[0].size() - GetSpikeLengthSamples();
+
+      // NOTE: we only consider a sample a "trigger", if the course of the spike
+      // crosses the threshold "in the correct direction"
+      // This means:
+      //   - when searching for a trigger, we wait initially until the current value
+      //     is BELOW the threshold (again - maybe multitple times??)
+      //   - afterwards we continue the loop untile the threshold is exceeded again
+      double         dSample;
+      int            nSamplesFoundBelowThreshold = 0;
+      bool           bAboveThreshold;
+      bool           bPositiveThreshold;
+
       for (nChannel = 0; nChannel < vvdData.size(); nChannel++)
          {
-         // decide only once about pos or neg threshold...
-         if (pswe->m_vdThreshold[nChannel] > 0)
+         nSamplesFoundBelowThreshold = 0;
+
+         bPositiveThreshold = pswe->m_vdThreshold[nChannel] > 0;
+
+         for (n = 0; n < nStopLoop; n++)
             {
-            for (n = (unsigned int)m_nPreThreshold; n < nStopLoop; n++)
+            dSample = vvdData[nChannel][n];
+            if (bPositiveThreshold)
+               bAboveThreshold = dSample > pswe->m_vdThreshold[nChannel];
+            else
+               bAboveThreshold = dSample < pswe->m_vdThreshold[nChannel];
+
+            // no values below threshold found? Check if we have to simply continue
+            if (!nSamplesFoundBelowThreshold) // maybe nSamplesFoundBelowThreshold < X instead?
                {
-               if (vvdData[nChannel][n] > pswe->m_vdThreshold[nChannel])
-                  {
-                  TSWSpike *psms = new TSWSpike(this, pswe, vvdData, n, nChannel);
-                  m_vvSpikes[nChannel].push_back(psms);
-                  n += nPostThreshold;
-                  }
+               // if still above threshold: continue directly
+               if (bAboveThreshold)
+                  continue;
                }
-            }
-         else
-            {
-            for (n = (unsigned int)m_nPreThreshold; n < nStopLoop; n++)
+
+            // reaching this point, exceeding the threshold means: it's a threshold crossing point!
+            if (bAboveThreshold)
                {
-               if (vvdData[nChannel][n] < pswe->m_vdThreshold[nChannel])
+               // create speak and set all values, that do NOT depend on
+               // current detection method
+               TSWSpike *psms             = new TSWSpike(GetSpikeLengthSamples());
+               psms->m_nStimIndex         = pswe->m_nStimIndex;
+               psms->m_nEpocheIndex       = pswe->m_nIndex;
+               psms->m_nRepetitionIndex   = pswe->m_nRepetitionIndex;
+               psms->m_dThreshold         = pswe->m_vdThreshold[nChannel];
+               psms->m_nChannelIndex      = nChannel;
+               // threshold crossing point is stored as absoute position within epoche (!)
+               psms->m_nThresholdCrossingPosition = n;
+               psms->m_dTrigT             = (double)n / m_dSampleRate;
+
+
+               // set "default" spike position: to m_nThresholdCrossingPosition:
+               // must be adjusted by detection method!
+               psms->m_nSpikePos          = n;
+
+
+               // DEPENDS ON METHOD
+               // call particular spike detection method. It will
+               // - copies the raw spike data from epoche to spike
+               // - calculate more spike values depending on method
+               // - applies optional constraints
+               // - return refractory time (number of samples to advance the search window after this peak).
+
+               // call spike detection method
+               unsigned int nRefractoryTime = CallSpikeDetectionMethod(psms, &vvdData[nChannel]);
+
+               // will return RefractoryTime > 0 on success
+               if (nRefractoryTime)
                   {
-                  TSWSpike *psms = new TSWSpike(this, pswe, vvdData, n, nChannel);
+
+                  // NOTE: before storing a spike, a spike detection  method might like to
+                  // "touch" the spike again, e.g. for "moving" it by copying from a different
+                  // position within the epoche including adjusting other values.This is currently
+                  // done only for "Version 2". This is NOT done within CallSpikeDetectionMethod
+                  //
                   m_vvSpikes[nChannel].push_back(psms);
-                  n += nPostThreshold;
                   }
+               // otherwise delete the spike and continue
+               else
+                  {
+                  // delete spike on failure
+                  delete psms;
+                  }
+
+               // reset nSamplesFoundBelowThreshold and advance window
+               nSamplesFoundBelowThreshold = 0;
+               n += nRefractoryTime;
                }
+            // otherwise increase number of values found below threshold
+            else
+               nSamplesFoundBelowThreshold++;
             }
          }
       }
@@ -343,8 +510,13 @@ void TSWSpikes::Add(_di_IXMLNode xmlSpikes)
    try
       {
       double   dSpikeTime, dThreshold;
-      int      nSpikePos, nStimIndex, nEpocheIndex, nRepetitionIndex, nChannelIndex;
+      int      nSpikePos, nThresholdCrossingPosition, nStimIndex, nEpocheIndex,
+               nRepetitionIndex, nChannelIndex;
       AnsiString asData;
+
+      // retrieve PreThreshold for Version 1 peak detection ONCE before the loops, in case we need it
+      unsigned int nPreThreshold = m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_1]->GetVariableInt("PreThreshold");
+
 
       // NOTE: accessing nodes in XML-Interface is very slow. But we may have
       // maaaaany spikes childnodes (single spikes) here. Therefor we use the
@@ -366,20 +538,22 @@ void TSWSpikes::Add(_di_IXMLNode xmlSpikes)
             throw Exception("invalid Channel found in a spike");
          if (!TryStrToDouble(GetNodeChildValue(xmlSpike, "Threshold"), dThreshold))
             throw Exception("invalid Threshold found in a spike");
-         // decode data
+
+         // decode raw spike waveform
          asData = GetNodeChildValue(xmlSpike, "Data");
          if (asData.IsEmpty())
             throw Exception("empty Data found in a spike");
 
          Sysutils::TBytes tbData = DecodeBase64(asData);
-         if (tbData.Length != (int)(m_nSpikeLength *(int)sizeof(double)))
+         if (tbData.Length != (int)(GetSpikeLengthSamples() *sizeof(double)))
             throw Exception("Data with invalid length found in a spike (expected length: " +
-                     IntToStr((int)(m_nSpikeLength *(int)sizeof(double))) +
+                     IntToStr((int)GetSpikeLengthSamples()) +
                      ", current length: " +
-                     IntToStr((int)tbData.Length)
+                     IntToStr((int)tbData.Length / (int)sizeof(double))
             );
 
-         TSWSpike *psms             = new TSWSpike(this);
+         // create the new spike
+         TSWSpike *psms             = new TSWSpike(GetSpikeLengthSamples());
          // NOTE: values were written 1-based !!!
          psms->m_dSpikeTime         = dSpikeTime;
          psms->m_nSpikePos          = (unsigned int)nSpikePos-1;
@@ -388,9 +562,55 @@ void TSWSpikes::Add(_di_IXMLNode xmlSpikes)
          psms->m_nRepetitionIndex   = (unsigned int)nRepetitionIndex-1;
          psms->m_nChannelIndex      = (unsigned int)nChannelIndex-1;
          psms->m_dThreshold         = dThreshold;
+
          // copy the raw spike data
-         CopyMemory(&psms->m_vadData[0], &tbData[0], (unsigned int)m_nSpikeLength*sizeof(double));
-         psms->Init(m_dSampleRate);
+         CopyMemory(&psms->m_vadData[0], &tbData[0], GetSpikeLengthSamples()*sizeof(double));
+
+
+         // compatibility with versions before 2.5: these results were ALWAYS processed
+         // using spike detection "Version 1" and they differ with respect to
+         // - ThresholdCrossingPosition does not exist
+         // - meaning of SpikePosition has changed
+         // - PeakPosPosition and PeakNegPosition were NOT stored
+
+         // First: adjust ThresholdCrossingPosition and SpikePosition if needed
+         if (!TryStrToInt(GetNodeChildValue(xmlSpike, "ThresholdCrossingPosition"), nThresholdCrossingPosition))
+            {
+            // set new absolute trigger crossing position
+            nThresholdCrossingPosition = (int)psms->m_nSpikePos;
+            // afterwards adjust spike position by m_nPreThreshold
+            psms->m_nSpikePos -= nPreThreshold;
+            }
+         else
+            // see above: values were written 1-based !!!
+            nThresholdCrossingPosition -= 1;
+
+         psms->m_nThresholdCrossingPosition = (unsigned int)nThresholdCrossingPosition;
+         psms->m_dTrigT             = (double)psms->m_nThresholdCrossingPosition / m_dSampleRate;
+
+
+         // Second: check, if peak positions are available
+         int nPeakPosPosition, nPeakNegPosition = 0;
+         if (  TryStrToInt(GetNodeChildValue(xmlSpike, "PeakPosPosition"), nPeakPosPosition)
+            && TryStrToInt(GetNodeChildValue(xmlSpike, "PeakNegPosition"), nPeakNegPosition)
+            )
+            {
+            // calculate/retrieve values from positions
+            psms->m_nPeakUT   = (unsigned int)nPeakPosPosition-1;
+            psms->m_nPeakDT   = (unsigned int)nPeakNegPosition-1;
+            psms->m_dPeakUA   = psms->m_vadData[psms->m_nPeakUT - psms->m_nSpikePos];
+            psms->m_dPeakDA   = psms->m_vadData[psms->m_nPeakDT - psms->m_nSpikePos];
+            psms->m_dPeakUT   = (double)psms->m_nPeakUT / m_dSampleRate;
+            psms->m_dPeakDT   = (double)psms->m_nPeakDT / m_dSampleRate;
+            }
+         // otherwise call old (Version 1) peak extraction method
+         else
+            {
+            // call 'old' spikedetection WITHOUT passing epoche data: will only
+            // re-calculate the peak+/peak- values!
+            m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_1]->SpikeDetection(this, psms);
+            }
+
          // add it to spikes array
          m_vvSpikes[psms->m_nChannelIndex].push_back(psms);
 
@@ -436,7 +656,7 @@ double   TSWSpikes::GetSpikeParam(unsigned int nChannelIndex, unsigned int nInde
          case SP_PEAKNEG:        d = m_vvSpikes[nChannelIndex][nIndex]->PeakNeg(); break;
          case SP_PEAK2PEAK:      d = m_vvSpikes[nChannelIndex][nIndex]->PeakToPeak(); break;
          case SP_THRS2PEAK2:     d = m_vvSpikes[nChannelIndex][nIndex]->ThresholdToPeak2(); break;
-         default: throw Exception("unknown spike patrameter requested");
+         default: throw Exception("unknown spike parameter requested");
          }
       #pragma clang diagnostic pop
       }
@@ -478,6 +698,37 @@ unsigned int TSWSpikes::GetSpikePosition(unsigned int nChannelIndex, unsigned in
    return m_vvSpikes[nChannelIndex][nIndex]->m_nSpikePos;
 }
 //------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// returns position of positive peak in samples
+//------------------------------------------------------------------------------
+unsigned int   TSWSpikes::GetSpikePeakPosPosition(unsigned int nChannelIndex, unsigned int nIndex)
+{
+   AssertIndex(nChannelIndex);
+   return m_vvSpikes[nChannelIndex][nIndex]->m_nPeakUT;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// returns position of negative peak in samples
+//------------------------------------------------------------------------------
+unsigned int   TSWSpikes::GetSpikePeakNegPosition(unsigned int nChannelIndex, unsigned int nIndex)
+{
+   AssertIndex(nChannelIndex);
+   return m_vvSpikes[nChannelIndex][nIndex]->m_nPeakDT;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// returns spikes threshold crossing  position by channel and index
+//------------------------------------------------------------------------------
+unsigned int TSWSpikes::GetThresholdCrossingPosition(unsigned int nChannelIndex, unsigned int nIndex)
+{
+   AssertIndex(nChannelIndex);
+   return m_vvSpikes[nChannelIndex][nIndex]->m_nThresholdCrossingPosition;
+}
+//------------------------------------------------------------------------------
+
 
 //------------------------------------------------------------------------------
 /// returns spike group by channel and index
@@ -529,73 +780,19 @@ unsigned int TSWSpikes::GetRepetitionIndex(unsigned int nChannelIndex, unsigned 
 }
 //------------------------------------------------------------------------------
 
+
 //------------------------------------------------------------------------------
-/// CLASS TSWSpike containing info about one spike
+/// CLASS TSWSpike containing info about one spike. NOTE: all members are
+/// filled after
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// constructor. Initializes members, copies passed data
+/// constructor initializes spike data valarray and group index
 //------------------------------------------------------------------------------
-TSWSpike::TSWSpike(  TSWSpikes* pSpikes,
-                     TSWEpoche *pswe,
-                     vvd   &rvvdEpocheData,
-                     unsigned int nPos,
-                     unsigned int nChannelIndex)
+TSWSpike::TSWSpike(unsigned int nSpikeLength)
    : m_nGroupIndex(-1)
 {
-   m_nStimIndex         = pswe->m_nStimIndex;
-   m_nEpocheIndex       = pswe->m_nIndex;
-   m_nRepetitionIndex   = pswe->m_nRepetitionIndex;
-   m_dThreshold      = pswe->m_vdThreshold[nChannelIndex];
-   m_nChannelIndex   = nChannelIndex;
-   m_nSpikePos       = nPos;
-   // copy the pure spike data
-   m_vadData.resize((unsigned int)pSpikes->m_nSpikeLength);
-   CopyMemory(&m_vadData[0], &rvvdEpocheData[nChannelIndex][nPos-(unsigned int)pSpikes->m_nPreThreshold], (unsigned int)pSpikes->m_nSpikeLength*sizeof(double));
-   m_dTrigT          = (double)pSpikes->m_nPreThreshold / pSpikes->m_dSampleRate;
-   m_dSpikeTime      = (double)nPos / pSpikes->m_dSampleRate;
-
-   Init(pSpikes->m_dSampleRate);
-}
-//------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------
-/// constructor creating an empty spike
-//------------------------------------------------------------------------------
-TSWSpike::TSWSpike(TSWSpikes* pSpikes)
-   : m_nGroupIndex(-1)
-{
-   m_vadData.resize((unsigned int)pSpikes->m_nSpikeLength);
-   m_dTrigT = (double)pSpikes->m_nPreThreshold / pSpikes->m_dSampleRate;
-}
-//------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------
-/// Init routine: determines spike parameters
-//------------------------------------------------------------------------------
-void TSWSpike::Init(double dSampleRate)
-{
-   // determine general spike parameters
-   m_dPeakUA = 0.0;
-   m_dPeakDA = 0.0;
-   m_dPeakUT = 0.0;
-   m_dPeakDT = 0.0;
-   unsigned int n;
-   double d;
-   for (n = 0; n < m_vadData.size(); n++)
-      {
-      d = m_vadData[n];
-      if (d > m_dPeakUA)
-         {
-         m_dPeakUA = d;
-         m_dPeakUT = (double)n / dSampleRate;
-         }
-      else if (m_vadData[n] < m_dPeakDA)
-         {
-         m_dPeakDA = d;
-         m_dPeakDT = (double)n / dSampleRate;
-         }
-      }
+   m_vadData.resize(nSpikeLength);
 }
 //------------------------------------------------------------------------------
 
@@ -644,6 +841,7 @@ double   TSWSpike::PeakNeg()
 }
 //------------------------------------------------------------------------------
 
+
 //------------------------------------------------------------------------------
 /// peak to peak time in microseconds
 //------------------------------------------------------------------------------
@@ -659,7 +857,6 @@ double   TSWSpike::PeakToPeak()
 double   TSWSpike::ThresholdToPeak2()
 {
    double d = m_dPeakUT > m_dPeakDT ? fabs(m_dPeakUT - m_dTrigT) : fabs(m_dPeakDT - m_dTrigT);
-
    return d*1000000.0;
 }
 //------------------------------------------------------------------------------

@@ -115,7 +115,7 @@ void __fastcall TformBubblePlot::FormCloseQuery(TObject *Sender, bool &CanClose)
       // important: set CanClose to false, because formSpikeWare->btnStopClick
       // will delete this window!
       CanClose = false;
-      formSpikeWare->btnStopClick(NULL);
+      formSpikeWare->acStopExecute(NULL);
       }
 }
 //---------------------------------------------------------------------------

@@ -154,7 +154,7 @@ void TformSpikes::SetMaxNumSpikes()
 
    // this number is 'fix' to allow a max of 500 Spikes per spike group. maybe changed
    // in INI file, but it's NOT recommended to do so.......
-   m_nMaxNumSpikes = formSpikeWare->m_pIni->ReadInteger("Settings", "MaxNumSpikesTotal", 3000);
+   m_nMaxNumSpikes = formSpikeWare->m_pIni->ReadInteger("Settings", "MaxNumSpikesTotal", Ini_MaxNumSpikesTotal);
 
    int i;
    for (i = 0; i < m_nMaxNumSpikes; i++)
@@ -177,11 +177,19 @@ void TformSpikes::SetMaxNumSpikes()
 //------------------------------------------------------------------------------
 void TformSpikes::Initialize()
 {
-
-   // NOTE: -1 because first value is at 0 !!
-   chrt->TopAxis->SetMinMax(0,      formSpikeWare->m_swsSpikes.m_dSpikeLength*formSpikeWare->m_swsSpikes.GetSampleRate() - 1);
-   chrt->BottomAxis->SetMinMax(0,   formSpikeWare->m_swsSpikes.m_dSpikeLength*1000.0);
+   UpdateXAxes();
    formSpikeWare->RestoreChartAxis(this, chrt);
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// updates properties of XAxes
+//------------------------------------------------------------------------------
+void TformSpikes::UpdateXAxes()
+{
+   // NOTE: -1 because first value is at 0 !!
+   chrt->TopAxis->SetMinMax(0,      formSpikeWare->m_swsSpikes.GetSpikeLengthSamples() - 1);
+   chrt->BottomAxis->SetMinMax(0,   formSpikeWare->m_swsSpikes.GetSpikeLength()*1000.0);
 }
 //------------------------------------------------------------------------------
 
@@ -236,7 +244,7 @@ void TformSpikes::Plot(unsigned int nChannelIndex)
       m_nPlotCounter++;
 
       // adjust buffer length for averaging buffers if necessary
-      unsigned int nSpikeLen = (unsigned int)formSpikeWare->m_swsSpikes.m_nSpikeLength;
+      unsigned int nSpikeLen = (unsigned int)formSpikeWare->m_swsSpikes.GetSpikeLengthSamples();
       unsigned int i;
       for (i = 0; i < m_vsaAverage.size(); i++)
          {
@@ -397,15 +405,7 @@ void __fastcall TformSpikes::chrtClickAxis(TCustomChart *Sender, TChartAxis *Axi
 {
    if (!formSpikeWare->FormsCreated())
       return;
-   if (Axis == chrt->BottomAxis)
-      {
-      // NOTE:THIS IS DISABLED BY PURPOSE: bottom axis NOT to be set arbitrary!!
-
-      // adjust top axis as well if bottom changed!
-      // if (formSpikeWare->m_pformSetParameters->SetAxisMinMax(Axis, 0, formSpikeWare->m_swsSpikes.m_dSpikeLength*1000.0, this))
-      // chrt->TopAxis->SetMinMax( MsToSamples(Axis->Minimum, formSpikeWare->m_swsSpikes.GetSampleRate()), MsToSamples(Axis->Maximum, formSpikeWare->m_swsSpikes.GetSampleRate()));
-      }
-   else if (Axis == chrt->LeftAxis)
+   if (Axis == chrt->LeftAxis)
       {
       // if changed, then set identical on epoche form
       if (  formSpikeWare->m_pformSetParameters->SetAxisMinMax(Axis, -1, 1, this)

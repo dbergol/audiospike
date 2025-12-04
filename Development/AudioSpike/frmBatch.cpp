@@ -335,7 +335,7 @@ void TformBatch::DoBatchRun()
          // save?
          if (m_nAction == BA_SAVESKIP || m_nAction == BA_CONTINUE)
             {
-            formSpikeWare->btnSaveClick(NULL);
+            formSpikeWare->acSaveExecute(NULL);
             UpdateGUI();
             // update status
             lv->Items->Item[n]->SubItems->Strings[0] = m_nAction ==  BA_SAVESKIP ? "aborted" : "done";
@@ -655,7 +655,7 @@ void __fastcall TformBatch::btnStopSaveStepClick(TObject *Sender)
       )
       return;
    m_nAction = BA_SAVESKIP;
-   formSpikeWare->btnStopClick(NULL);
+   formSpikeWare->acStopExecute(NULL);
 
 }
 //------------------------------------------------------------------------------
@@ -673,7 +673,7 @@ void __fastcall TformBatch::btnStopRejectRepeatClick(TObject *Sender)
       )
       return;
    m_nAction = BA_REPEAT;
-   formSpikeWare->btnStopClick(NULL);
+   formSpikeWare->acStopExecute(NULL);
 
 }
 //------------------------------------------------------------------------------

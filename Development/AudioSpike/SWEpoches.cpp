@@ -41,12 +41,6 @@
 #pragma warn -aus
 //------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
-/// absolute value to be exceeded to be interpreted as a trigger
-//------------------------------------------------------------------------------
-#define TRIGGER_THRESHOLD 0.1f
-//------------------------------------------------------------------------------
-
 
 //------------------------------------------------------------------------------
 /// constructor initializes members
@@ -82,7 +76,7 @@ vvd TSWEpoche::GetData()
    try
       {
       pfs = new TFileStream(m_usFileName, fmOpenRead | fmShareDenyNone);
-      __int64 nPos = m_nIndex * m_nNumChannels * m_nNumSamples * sizeof(float);
+      int64_t nPos = m_nIndex * m_nNumChannels * m_nNumSamples * sizeof(float);
       if (nPos > pfs->Size-1)
          throw Exception("cannot read epoche data: position exceeded");
       pfs->Seek(nPos, soBeginning);
@@ -168,13 +162,18 @@ void TSWEpoches::AssertIndex(unsigned int nChannelIndex)
 //------------------------------------------------------------------------------
 /// initializes vectors to correct sizes
 //------------------------------------------------------------------------------
-void  TSWEpoches::Initialize(unsigned int nNumChannels, unsigned int nSize)
+void  TSWEpoches::Initialize( unsigned int nNumChannels,
+                              unsigned int nSize,
+                              std::vector<int >& rvnInverted)
 {
    Clear();
 
+   if (rvnInverted.size() != nNumChannels)
+      throw Exception("invalid Inverted vector size");
+   m_vnInverted = rvnInverted;
+
    m_vvfEpoche.resize(nNumChannels);
    m_vdThreshold.resize(nNumChannels);
-   m_vbInverted.resize(nNumChannels);
    unsigned int nChannel;
    for (nChannel = 0; nChannel < nNumChannels; nChannel++)
       m_vvfEpoche[nChannel].resize(nSize);
@@ -210,6 +209,43 @@ void TSWEpoches::SetThreshold(unsigned int nChannelIndex, double dThreshold)
    try
       {
       m_vdThreshold[nChannelIndex] = dThreshold;
+      }
+   __finally
+      {
+      LeaveCriticalSection(&m_cs);
+      }
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// sets inverted-flag (flip polarity) for a channel
+//------------------------------------------------------------------------------
+void TSWEpoches::SetInverted(unsigned int nChannelIndex, bool bInverted)
+{
+   AssertIndex(nChannelIndex);
+   EnterCriticalSection(&m_cs);
+   try
+      {
+      m_vnInverted[nChannelIndex] = bInverted ? 1 : 0;
+      }
+   __finally
+      {
+      LeaveCriticalSection(&m_cs);
+      }
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// sets inverted-flag (flip polarity) for all channel
+//------------------------------------------------------------------------------
+void TSWEpoches::SetInverted(bool bInverted)
+{
+   EnterCriticalSection(&m_cs);
+   try
+      {
+      unsigned int n;
+      for (n = 0; n < m_vnInverted.size(); n++)
+         m_vnInverted[n] = bInverted ? 1 : 0;
       }
    __finally
       {
@@ -260,17 +296,6 @@ void TSWEpoches::DoneSave()
    Application->ProcessMessages();
 }
 //------------------------------------------------------------------------------
-
-#ifdef CHKCHNLS
-//------------------------------------------------------------------------------
-/// debug function for checking channels
-//------------------------------------------------------------------------------
-void TSWEpoches::SetTriggerChannel(unsigned int nTriggerChannel)
-{
-   m_nTriggerChannel = nTriggerChannel;
-}
-//------------------------------------------------------------------------------
-#endif
 
 //------------------------------------------------------------------------------
 /// cleans up all stored epoches
@@ -333,7 +358,6 @@ void TSWEpoches::Start()
    m_bTriggerError      = false;
    m_nFirstTriggerError = -1;
    m_nDoubleTriggerDistance = 4*formSpikeWare->m_smp.m_nTriggerLength / (int)formSpikeWare->m_swsSpikes.m_dSampleRateDevider;
-   m_nTriggerTestTriggersPlayed = 0;
    m_nStimIndexAtStart = formSpikeWare->m_nStimPlayIndex;
    // finally initialize buffers for probemics
    m_vvfEpocheProbeMic.clear();
@@ -464,26 +488,13 @@ unsigned int TSWEpoches::Count()
 //------------------------------------------------------------------------------
 /// Main SoundProc searching for trigger and stores epoche audio data 
 //------------------------------------------------------------------------------
-void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
+void TSWEpoches::SoundProc(vvf &vvfBuffers)
 {
+   float fTriggerThreshold = (float)dBToFactor((double)formSpikeWare->m_smp.m_nTriggerThresholddB);
+
    try
       {
       unsigned int nTriggerChannel = (unsigned int)formSpikeWare->m_smp.m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN);
-      #ifdef CHKCHNLS
-      static bool bShown = false;
-      if ((int)nTriggerChannel != formSpikeWare->m_smp.m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN))
-         {
-         if (!bShown)
-            ShowMessage("error 1 " + UnicodeString(__FUNC__));
-         bShown = true;
-         }
-      #endif
-
-      if (bTriggerTest)
-         {
-         SoundProcTriggerTest(vvfBuffers);
-         return;
-         }
 
       EnterCriticalSection(&m_csReset);
       unsigned int nNumCopySamplesInBuf = (unsigned int)vvfBuffers[0].size();
@@ -513,8 +524,8 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                   }
                else
                   {
-                  // NOTE: here we check for TRIGGER_THRESHOLD/2.0 because the second pulse only has half the amplitude of first!
-                  if (vvfBuffers[nTriggerChannel][(unsigned int)nPos] >= TRIGGER_THRESHOLD/2.0f)
+                  // NOTE: here we check for fTriggerThreshold/2.0 because the second pulse only has half the amplitude of first!
+                  if (vvfBuffers[nTriggerChannel][(unsigned int)nPos] >= fTriggerThreshold/2.0f)
                      {
                      // set flag, that first trigger was fine!
                      // OutputDebugString("SET m_nFirstTriggerError TO 0");
@@ -573,7 +584,7 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                // find maximum
                float* pf = std::max_element(&vvfBuffers[nTriggerChannel][0], &vvfBuffers[nTriggerChannel][vvfBuffers[nTriggerChannel].size()]);
                // if below trigger threshold: nothing to do: break condiditon for BOTH loops
-               if (*pf < TRIGGER_THRESHOLD)
+               if (*pf < fTriggerThreshold)
                   return;
 
                m_nTriggersDetected++;
@@ -602,8 +613,8 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                      {
                      if ((int)nNumCopySamplesInBuf >= m_nDoubleTriggerDistance)
                         {
-                        // NOTE: here we check for TRIGGER_THRESHOLD/2.0 because the second pulse only has half the amplitude of first!
-                        if (vvfBuffers[nTriggerChannel][nSourceStartSample+(unsigned int)m_nDoubleTriggerDistance] >= TRIGGER_THRESHOLD/2.0f)
+                        // NOTE: here we check for fTriggerThreshold/2.0 because the second pulse only has half the amplitude of first!
+                        if (vvfBuffers[nTriggerChannel][nSourceStartSample+(unsigned int)m_nDoubleTriggerDistance] >= fTriggerThreshold/2.0f)
                            {
                            // set flag, that first trigger was fine!
                            // OutputDebugString("SET m_nFirstTriggerError TO 0");
@@ -635,23 +646,10 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
 
                unsigned int nChannel;
                unsigned int nEpocheChannel = 0;
-               #ifdef CHKCHNLS
-               static bool bShown2 = false;
-               UnicodeString us1, us2;
-               #endif
                for (nChannel = 0; nChannel < vvfBuffers.size(); nChannel++)
                   {
                   if (!formSpikeWare->m_smp.m_swcUsedChannels.IsElectrode(nChannel))
                      continue;
-
-                  // store/update inverted flag
-                  m_vbInverted[nEpocheChannel] = formSpikeWare->m_smp.m_swcUsedChannels.IsInputInverted(nChannel);
-
-                  #ifdef CHKCHNLS
-                  us2 += IntToStr((int)nChannel) + ", ";
-                  if (nChannel != nTriggerChannel)
-                     us1 += IntToStr((int)nChannel) + ", ";
-                  #endif
 
                   CopyMemory(&m_vvfEpoche[nEpocheChannel++][(unsigned int)m_nRecEpochePos], &vvfBuffers[nChannel][nSourceStartSample], nNumCopySamples*sizeof(float));
                   }
@@ -669,15 +667,6 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                      }
                   }
 
-               #ifdef CHKCHNLS
-               if (us1 != us2)
-                  {
-                  if (!bShown2)
-                     ShowMessage("error 2 " + UnicodeString(__FUNC__));
-                  bShown2 = true;
-                  }
-               #endif
-
                m_nRecEpochePos += nNumCopySamples;
 
                // done storing epoche?
@@ -693,8 +682,11 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                   unsigned int m;
                   for (m = 0; m < m_vvfEpoche.size(); m++)
                      {
+                     // overwrite with fix value for TESTING 'FlipPolarity'
+                     // m_vvfEpoche[m] = 0.5;
+
                      // invert epoche data if corresponding option is set for channel!
-                     if (m_vbInverted[m])
+                     if (m_vnInverted[m])
                         m_vvfEpoche[m] *= -1.0f;
                      }
 
@@ -711,7 +703,7 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
                      // connected to first output channel! This order is stored in m_viProbeMicOutChannels!!
                      for (m = 0; m < m_vvfEpocheProbeMic.size(); m++)
                         {
-                        m_pfsWriteProbeMic->WriteBuffer( &m_vvfEpocheProbeMic[(unsigned int)formSpikeWare->m_smp.m_viProbeMicOutChannels[m]][0], 
+                        m_pfsWriteProbeMic->WriteBuffer( &m_vvfEpocheProbeMic[(unsigned int)formSpikeWare->m_smp.m_viProbeMicOutChannels[m]][0],
                                                          (NativeInt)(m_vvfEpocheProbeMic[m].size()*sizeof(float)));
                         m_vvfEpocheProbeMic[m] = 0.0f;
                         }
@@ -745,17 +737,12 @@ void TSWEpoches::SoundProc(vvf &vvfBuffers, bool bTriggerTest)
 //------------------------------------------------------------------------------
 void TSWEpoches::SoundProcTriggerTest(vvf &vvfBuffers)
 {
+   static unsigned int nTriggerTestSamplesRecorded = 0;
+   float fTriggerThreshold = (float)dBToFactor((double)formSpikeWare->m_smp.m_nTriggerThresholddB);
+
    EnterCriticalSection(&m_csReset);
    unsigned int nTriggerChannel = (unsigned int)formSpikeWare->m_smp.m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN);
-   #ifdef CHKCHNLS
-   static bool bShown = false;
-   if ((int)nTriggerChannel != formSpikeWare->m_smp.m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN))
-      {
-      if (!bShown)
-         OutputDebugString("NO");
-      bShown = true;
-      }
-   #endif
+   unsigned int nTriggerDistance;
    try
       {
       // here we search for total number of triggers regardless of epoche length AND
@@ -768,9 +755,11 @@ void TSWEpoches::SoundProcTriggerTest(vvf &vvfBuffers)
       for (n = m_nNumTriggerSamplesInNextBuffer; n < nNumSamples; n++)
          {
          fValue = fabs(vvfBuffers[nTriggerChannel][n]);
-         if (fValue >= TRIGGER_THRESHOLD)
+         if (fValue >= fTriggerThreshold)
             {
             m_nTriggersDetected++;
+            m_nLastTriggerDistance  = nTriggerTestSamplesRecorded + n - m_nLastTriggerPos;
+            m_nLastTriggerPos       = nTriggerTestSamplesRecorded + n;
 
             // now get maximum amplitude of this buffer as maximum trigger amplitude!
             dMin = fabs((double)vvfBuffers[nTriggerChannel].min());
@@ -792,26 +781,22 @@ void TSWEpoches::SoundProcTriggerTest(vvf &vvfBuffers)
    __finally
       {
       LeaveCriticalSection(&m_csReset);
+      nTriggerTestSamplesRecorded += vvfBuffers[0].size();
       }
 }
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// sound playback proc for trigger test simply detecting and counting plaed triggers
+/// sound playback proc for trigger test simply detecting and counting played triggers
 //------------------------------------------------------------------------------
 void TSWEpoches::SoundProcTriggerTestPlay(vvf &vvfBuffers)
 {
+   float fTriggerValue = (float)dBToFactor((double)formSpikeWare->m_smp.m_nTriggerValuedB) - 0.1f;
+
+
    EnterCriticalSection(&m_csReset);
    unsigned int nTriggerChannel = (unsigned int)formSpikeWare->m_smp.m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN);
-   #ifdef CHKCHNLS
-   static bool bShown = false;
-   if ((int)nTriggerChannel != formSpikeWare->m_smp.m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN))
-      {
-      if (!bShown)
-         OutputDebugString("NO");
-      bShown = true;
-      }
-   #endif
+
    try
       {
       // here we search for total number of triggers regardless of epoche length
@@ -820,7 +805,7 @@ void TSWEpoches::SoundProcTriggerTestPlay(vvf &vvfBuffers)
       unsigned int nTriggerLength = (unsigned int)formSpikeWare->m_smp.m_nTriggerLength / (unsigned int)formSpikeWare->m_swsSpikes.m_dSampleRateDevider;
       for (n = m_nNumTriggerSamplesInNextBufferPlay; n < nNumSamples; n++)
          {
-         if (fabs(vvfBuffers[nTriggerChannel][n]) >= TRIGGER_THRESHOLD)
+         if (fabs(vvfBuffers[nTriggerChannel][n]) >= fTriggerValue)
             {
             m_nTriggerTestTriggersPlayed++;
             n += nTriggerLength;

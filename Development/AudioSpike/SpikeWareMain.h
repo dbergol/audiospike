@@ -61,6 +61,8 @@
 #include <Xml.XMLIntf.hpp>
 #include <Vcl.StdCtrls.hpp>
 #include <Vcl.Buttons.hpp>
+#include <System.Actions.hpp>
+#include <Vcl.ActnList.hpp>
 #include <VCL.FileCtrl.hpp>
 #include <System.inifiles.hpp>
 #include <System.ImageList.hpp>
@@ -83,7 +85,9 @@
 #include "SWSMP.h"
 #include "SWTools.h"
 #include "frmSettings.h"
+#include "frmSoundSettings.h"
 #include "SWFilters.h"
+#include "SWDefaultValues.h"
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
@@ -111,14 +115,15 @@ class TformVectorStrength;
 class TformBubbleData;
 //------------------------------------------------------------------------------
 
+
 //------------------------------------------------------------------------------
 /// enum for status bar panel indices
 //------------------------------------------------------------------------------
 enum TSBPanel {
    SB_P_FLOPPY = 0,
    SB_P_CONFIG,
-   SB_P_STATUS,
-   SB_P_DEMO
+   SB_P_METHOD,
+   SB_P_STATUS
 };
 //------------------------------------------------------------------------------
 
@@ -234,43 +239,80 @@ class TformSpikeWare : public TForm
       TToolButton *tbsSeparator5;
       TMenuItem *miSignalPSTH;
       TMenuItem *miTools;
-      TMenuItem *miAdjustSpikeLength;
       TToolButton *btnReloadEpoches;
       TMenuItem *N1;
       TMenuItem *miBatchRun;
       TToolButton *btnBatch;
       TMenuItem *miUpdateCheck;
-      void __fastcall btnLoadTemplateClick(TObject *Sender);
-      void __fastcall btnParamClick(TObject *Sender);
-      void __fastcall btnRunClick(TObject *Sender);
-      void __fastcall btnClusterClick(TObject *Sender);
-      void __fastcall miFormToggleClick(TObject *Sender);
-      void __fastcall btnStopClick(TObject *Sender);
+      TToolButton *btnSetSpikeDetection;
+      TMenuItem *miSoundSettings;
+      TToolButton *btnFlipEpoches;
+      TActionList *ActionList;
+      TMenuItem *N2;
+      TMenuItem *miControl;
+      TMenuItem *miSRun;
+      TMenuItem *miPause;
+      TMenuItem *miStop;
+      TAction *acLoadTemplate;
+      TAction *acRun;
+      TAction *acBatch;
+      TAction *acLoadResult;
+      TAction *acAppend;
+      TAction *acSave;
+      TAction *acCluster;
+      TAction *acParam;
+      TAction *acPause;
+      TAction *acStop;
+      TAction *acReloadEpoches;
+      TMenuItem *miReloadEpoches;
+      TAction *acFlipEpoches;
+      TMenuItem *miFlipEpoches;
+      TAction *acRescanSpikes;
+      TMenuItem *miRescanSpikes;
+      TAction *acSetSpikeDetection;
+      TMenuItem *miSetSpikeDetection;
+      TMenuItem *N4;
+      TAction *acSearch;
+      TMenuItem *miSearch;
+      TAction *acFreeSearch;
+      TMenuItem *miFreeSearch;
+      TAction *acSettings;
+      TAction *acSoundSettings;
+      TAction *acHelp;
+      TAction *acUpdateCheck;
+      TAction *acAbout;
+      TAction *acFormToggle;
+      void __fastcall acLoadTemplateExecute(TObject *Sender);
+      void __fastcall acParamExecute(TObject *Sender);
+      void __fastcall acRunExecute(TObject *Sender);
+      void __fastcall acClusterExecute(TObject *Sender);
+      void __fastcall acFormToggleExecute(TObject *Sender);
+      void __fastcall acStopExecute(TObject *Sender);
       void __fastcall EpocheTimerTimer(TObject *Sender);
-      void __fastcall miSettingsClick(TObject *Sender);
-      void __fastcall btnPauseClick(TObject *Sender);
-      void __fastcall btnLoadResultClick(TObject *Sender);
-      void __fastcall btnSaveClick(TObject *Sender);
-      void __fastcall btnRescanSpikesClick(TObject *Sender);
-      void __fastcall btnSearchClick(TObject *Sender);
+      void __fastcall acSettingsExecute(TObject *Sender);
+      void __fastcall acPauseExecute(TObject *Sender);
+      void __fastcall acLoadResultExecute(TObject *Sender);
+      void __fastcall acSaveExecute(TObject *Sender);
+      void __fastcall acRescanSpikesExecute(TObject *Sender);
+      void __fastcall acSearchExecute(TObject *Sender);
       void __fastcall FormCloseQuery(TObject *Sender, bool &CanClose);
       void __fastcall sbDrawPanel(TStatusBar *StatusBar, TStatusPanel *Panel, const TRect &Rect);
       void __fastcall StatusTimerTimer(TObject *Sender);
-      void __fastcall btnFreeSearchClick(TObject *Sender);
-      void __fastcall btnAppendClick(TObject *Sender);
-      void __fastcall miHelpClick(TObject *Sender);
-      void __fastcall miAboutClick(TObject *Sender);
+      void __fastcall acFreeSearchExecute(TObject *Sender);
+      void __fastcall acAppendExecute(TObject *Sender);
+      void __fastcall acHelpExecute(TObject *Sender);
+      void __fastcall acAboutExecute(TObject *Sender);
       void __fastcall btnInSituClick(TObject *Sender);
-      void __fastcall miAdjustSpikeLengthClick(TObject *Sender);
       void __fastcall FormShow(TObject *Sender);
-      void __fastcall btnReloadEpochesClick(TObject *Sender);
-      void __fastcall btnBatchClick(TObject *Sender);
+      void __fastcall acReloadEpochesExecute(TObject *Sender);
+      void __fastcall acBatchExecute(TObject *Sender);
       void __fastcall sbResize(TObject *Sender);
-      void __fastcall miUpdateCheckClick(TObject *Sender);
+      void __fastcall acUpdateCheckExecute(TObject *Sender);
+      void __fastcall acSetSpikeDetectionExecute(TObject *Sender);
+      void __fastcall acSoundSettingsExecute(TObject *Sender);
+      void __fastcall acFlipEpochesExecute(TObject *Sender);
    private:	// Benutzer-Deklarationen
       bool     m_bFormsCreated;
-      bool     m_bForceReloadMeasurement;
-      int      m_nLastLoadMode;
       void     CreateForms();
       void     CreateClusterWindow(int nX = -1, int nY = -1, unsigned int nChannels = 1);
       bool     ProcessEpoches();
@@ -287,6 +329,8 @@ class TformSpikeWare : public TForm
       static UnicodeString GetSettingsRootPath();
       static UnicodeString GetSettingsPath();
       static UnicodeString ms_usSettingsName;
+      bool              m_bForceReloadMeasurement;
+      int               m_nLastLoadMode;
       UnicodeString     m_usASCaption;
       bool              m_bFreeWindows;
       TSWGuiStatus      m_gs;
@@ -306,6 +350,7 @@ class TformSpikeWare : public TForm
       TformSetParameters*  m_pformSetParameters;
       TformSelect*         m_pformSelect;
       TformSettings*       m_pformSettings;
+      TformSoundSettings*  m_pformSoundSettings;
       TformBubbleData*     m_pformBubbleData;
       std::vector<TformCluster* >      m_vpformCluster;
       std::vector<TformBubblePlot* >   m_vpformBubblePlots;
@@ -322,6 +367,7 @@ class TformSpikeWare : public TForm
       UnicodeString     m_usFixResultPath;
       UnicodeString     m_usTemplatePath;
       UnicodeString     m_usResultPath;
+      UnicodeString     m_usLastLoadedResult;
       UnicodeString     m_usResultPathRoot;
       UnicodeString     m_usMsg;
       std::vector<int > m_viStimSequence;
@@ -358,7 +404,11 @@ class TformSpikeWare : public TForm
       bool           InitFreeSearch();
       int            EpochesXML(bool bDone);
       void           CreateXMLEpoches(std::vector<int >* vn = NULL);
-      void           LoadEpoches(TEpocheLoadMode nELM);
+      void           WriteInvertedChannels(void);
+      void           WriteSpikeTimeReference(void);
+      void           WriteRejectSingleSignSpikes(void);
+      bool           FlipEpoches();
+      void           LoadEpoches(TEpocheLoadMode nELM, bool bQuietOnMissing = false);
       void           SetXMLEpocheDone(int nNode, bool bDone);
       void           SetXMLEpocheThreshold(int nNode, std::vector<double >& rvd);
       void           SetXMLEpocheThreshold(_di_IXMLNode xml, std::vector<double >& rvd);
@@ -384,6 +434,8 @@ class TformSpikeWare : public TForm
       void           RestoreChartAxis(TForm* pfrm, TChart *pchrt, bool bLeft = true, bool bBottom = false);
       void           SetEvalWindow(TformEpoches* pfrm);
       void           SetMonitor(TformEpoches* pfrm);
+      void           SetInverted(TformEpoches* pfrm);
+      void           SetSpikeTimeReference(TSpikeTimeReference str, bool bForce = false);
       void           SetSelectionWindow(TformCluster* pfrm);
       void           ScaleClusterPlots(int nChannel);
       void           ScaleClusterPlot(TformCluster* pfrm);
@@ -392,10 +444,14 @@ class TformSpikeWare : public TForm
       TColor         SpikeGroupToColor(int n, bool bLight = false);
       void           SetThreshold(unsigned int nChannelIndex, double dThreshold, bool bSave = true);
       double         GetThreshold(unsigned int nChannelIndex);
+      void           ShowDetectionMethod(UnicodeString us);
       std::vector<double >& GetThresholds();
       unsigned int   GetCurrentStimulus(unsigned int nEpochesTotal);
       void           SetGUIStatus(TSWGuiStatus gs = SWGS_UNCHANGED);
       bool           IsRunning();
+      bool           MeasIsRunning();
+      bool           MeasHasData();
+
       // static procedures passed to SMP
       static void    SMPPreVSTProc(vvf &vvfBuffers);
       static void    SMPPostVSTProc(vvf &vvfBuffers);
@@ -417,7 +473,7 @@ class TformSpikeWare : public TForm
       UnicodeString  GetStatusString();
       void           SetGUIBusy(bool bBusy, TWinControl* pctrt);
       void           DebugSaveXML(int n = 0);
-      bool           RMSWarning();
+      void           RMSWarning();
       void           HighPassWarning();
       bool           IsInSitu();
       void           SetInSitu(bool b, bool bForce = false);
@@ -427,6 +483,10 @@ class TformSpikeWare : public TForm
       void           CleanupBatchMode();
       void           EnableEpocheTimer(bool bEnable);
       bool           CheckReloadMeasurement();
+      TModalResult   TaskDlg( UnicodeString usIntruction,
+                              UnicodeString usText,
+                              LPCSTR lpcszId = NULL,
+                              bool bCancelButton = false);
 };
 //------------------------------------------------------------------------------
 extern PACKAGE TformSpikeWare *formSpikeWare;

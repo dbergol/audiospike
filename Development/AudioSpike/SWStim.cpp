@@ -361,6 +361,7 @@ void TSWStimuli::AddLevelStimuli(_di_IXMLNode xmlDoc, vved& vvedLevels)
 //------------------------------------------------------------------------------
 void TSWStimuli::AddStimuli(_di_IXMLNode xmlStimuli, double dAvailableLength, int nMode)
 {
+OutputDebugString(__FUNC__);
    bool bResult = (nMode == SWLM_RESULT);
    m_bRMSMissing = false;
    m_swstStimuli.clear();
@@ -410,9 +411,18 @@ void TSWStimuli::AddStimuli(_di_IXMLNode xmlStimuli, double dAvailableLength, in
       usFileName = GetXMLValue(xmlStim, "FileName");
       if (usFileName.Length() < 2)
          throw Exception("FileName missing in stimulus '" + usName + "', subnode " + IntToStr(nNode + 1));
-
       usFileName = ExpandFileName(usFileName);
-      if (!bResult)
+
+      // for results, only try to read length for displaying it in epoche window
+      // (only available for results written bei AudioSpike >= version 2.5.1.0)
+      if (bResult)
+         {
+         int nStimLen;
+         if (TryStrToInt(GetXMLValue(xmlStim, "StimulusLengthSamples"), nStimLen))
+           nNumSamples = (unsigned int)nStimLen;
+         }
+      // for measurements: read stimulus
+      else
          {
          if (!FileExists(usFileName))
             throw Exception("Sound file '" + usFileName + "' not found specified in Stimulus '" + usName + "', subnode " + IntToStr(nNode + 1));
@@ -446,6 +456,9 @@ void TSWStimuli::AddStimuli(_di_IXMLNode xmlStimuli, double dAvailableLength, in
          // load it if necessary
          if (!GetAudioData(usFileName))
             LoadAudioData(usFileName, vvedRMS);
+
+         // write StimLength
+         xmlStim->ChildValues["StimulusLengthSamples"] = IntToStr((int)nNumSamples);
          }
       // values for ALL parameters MUST exist!
       for (nPar = 0; nPar < nNumPars; nPar++)
@@ -480,7 +493,7 @@ void TSWStimuli::AddStimuli(_di_IXMLNode xmlStimuli, double dAvailableLength, in
                }
             }
          }
-
+OutputDebugStringW(IntToStr((int)nNumSamples).w_str());
       m_swstStimuli.push_back(TSWStimulus(usName, usFileName, nNumSamples, vdParams, vusParams));
       m_swstStimuli.back().m_nIndex          = (unsigned int)m_swstStimuli.size()-1;
       m_swstStimuli.back().m_nFileStimIndex  = (unsigned int)nNode;

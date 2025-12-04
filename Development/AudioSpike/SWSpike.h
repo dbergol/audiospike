@@ -40,8 +40,8 @@
 #include <valarray>
 #include "SWSpikeParameters.h"
 #include "SWStimParameters.h"
+#include "SWSpikeDetectionMethods.h"
 #include "SWTools.h"
-
 //------------------------------------------------------------------------------
 
 class TSWSpike;
@@ -55,45 +55,64 @@ class TSWSpikes
    friend class TSWSpike;
    private:
       CRITICAL_SECTION        m_cs;
-      int                     m_nPreThreshold;
+
+      double                  m_dSpikeLength;
+      unsigned int            m_nSpikeLength;
       double                  m_dSampleRate;
       bool                    m_bInitialized;
+
       bool                    IsEmpty();
+      void                    SetSpikeLength(double dSpikeLength);
+      void                    AssertIndex(unsigned int nChannelIndex);
+
    public:
       TSWSpikes();
       ~TSWSpikes();
-      SWSpikeParameters       m_swspSpikePars;
-      double                  m_dPreThreshold;
-      double                  m_dSpikeLength;
-      int                     m_nSpikeLength;
-      double                  m_dPostThreshold;
-      int                     m_nPostThreshold;
-      double                  m_dSampleRateDevider;
-      void                    AssertIndex(unsigned int nChannelIndex);
-      std::vector<std::vector<TSWSpike* > > m_vvSpikes;
-      void     Clear();
-      double   GetSampleRate();
-      void     SetSampleRate(double dSampleRate, double dSampleRateDevider);
-      void     SetSpikeLength(double dPreThreshold, double dPostThreshold, double dSpikeLength);
 
-      unsigned int GetNumChannels();
-      void     SetNumChannels(unsigned int nNum);
+      std::vector<std::vector<TSWSpike* > > m_vvSpikes;     // vector of vectors with spikes per channel
 
-      void     Remove(unsigned int nEpocheIndex);
-      void     Remove(unsigned int nChannelIndex, unsigned int nEpocheIndex);
-      void     Add(TSWEpoche *pswe, vvd *pvvd = NULL);
-      void     Add(_di_IXMLNode xmlSpikes);
-      unsigned int GetNumSpikes(unsigned int nChannelIndex);
-      double   GetSpikeParam(unsigned int nChannelIndex, unsigned int nIndex, TSpikeParam sp);
-      double   GetSpikeTime(unsigned int nChannelIndex, unsigned int nIndex);
-      double   GetThreshold(unsigned int nChannelIndex, unsigned int nIndex);
-      unsigned int GetSpikePosition(unsigned int nChannelIndex, unsigned int nIndex);
-      int      GetSpikeGroup(unsigned int nChannelIndex, unsigned int nIndex);
-      unsigned int GetStimIndex(unsigned int nChannelIndex, unsigned int nIndex);
-      unsigned int GetEpocheIndex(unsigned int nChannelIndex, unsigned int nIndex);
-      unsigned int GetRepetitionIndex(unsigned int nChannelIndex, unsigned int nIndex);
-      void     SetSpikeGroup(unsigned int nChannelIndex, unsigned int nIndex, int nGroup);
-      void     SpikeGroupReset(unsigned int nChannelIndex);
+      SWSpikeParameters          m_swspSpikePars;
+      TSpikeDetectionMethods     m_sdmDetectionMethods;
+      bool                       m_bRejectSingleSignSpikes;
+      double                     m_dSampleRateDevider;
+
+      int            m_nTestFlag;
+      void           DebugSave(int x);
+
+      void           Clear();
+      double         GetSampleRate();
+      void           SetSampleRate(double dSampleRate, double dSampleRateDevider);
+
+      unsigned int   GetSpikeLengthSamples(void);
+      double         GetSpikeLength(void);
+
+      void           SetDetectionMethod1(double dSpikeLength, double dPreThreshold, double dPostThreshold);
+      void           SetDetectionMethod2(double dRefractoryTime, double dRefractoryTimeTailFactor);
+
+
+      void           SetNumChannels(unsigned int nNum);
+      unsigned int   GetNumChannels();
+
+      void           Remove(unsigned int nEpocheIndex);
+      void           Remove(unsigned int nChannelIndex, unsigned int nEpocheIndex);
+      void           Add(TSWEpoche *pswe, vvd *pvvd = NULL);
+      void           Add(_di_IXMLNode xmlSpikes);
+      unsigned int   CallSpikeDetectionMethod(  TSWSpike* psms,
+                                                std::valarray<double >* pvadEpoche = NULL);
+      unsigned int   GetNumSpikes(unsigned int nChannelIndex);
+      double         GetSpikeParam(unsigned int nChannelIndex, unsigned int nIndex, TSpikeParam sp);
+      double         GetSpikeTime(unsigned int nChannelIndex, unsigned int nIndex);
+      double         GetThreshold(unsigned int nChannelIndex, unsigned int nIndex);
+      unsigned int   GetSpikePosition(unsigned int nChannelIndex, unsigned int nIndex);
+      unsigned int   GetSpikePeakPosPosition(unsigned int nChannelIndex, unsigned int nIndex);
+      unsigned int   GetSpikePeakNegPosition(unsigned int nChannelIndex, unsigned int nIndex);
+      unsigned int   GetThresholdCrossingPosition(unsigned int nChannelIndex, unsigned int nIndex);
+      int            GetSpikeGroup(unsigned int nChannelIndex, unsigned int nIndex);
+      unsigned int   GetStimIndex(unsigned int nChannelIndex, unsigned int nIndex);
+      unsigned int   GetEpocheIndex(unsigned int nChannelIndex, unsigned int nIndex);
+      unsigned int   GetRepetitionIndex(unsigned int nChannelIndex, unsigned int nIndex);
+      void           SetSpikeGroup(unsigned int nChannelIndex, unsigned int nIndex, int nGroup);
+      void           SpikeGroupReset(unsigned int nChannelIndex);
       std::valarray<double>& GetSpike(unsigned int nChannelIndex, unsigned int nIndex);
 };
 //------------------------------------------------------------------------------
@@ -104,30 +123,28 @@ class TSWSpikes
 class TSWSpike
 {
    friend class TSWSpikes;
+   friend class TSpikeDetectionMethodVersion1;
+   friend class TSpikeDetectionMethodVersion2;
    public:
-      TSWSpike(TSWSpikes* pSpikes,
-               TSWEpoche *pswe,
-               vvd   &rvvdEpocheData,
-               unsigned int nPos,
-               unsigned int nChannelIndex
-               );
-      TSWSpike(TSWSpikes* pSpikes);
+      TSWSpike(unsigned int nSpikeLength);
    private:
-      int      m_nGroupIndex;
-      double   m_dThreshold;
-      double   m_dPeakUA;
-      double   m_dPeakDA;
-      double   m_dPeakUT;
-      double   m_dPeakDT;
-      double   m_dTrigT;
-      double   m_dSpikeTime;
-      unsigned int  m_nSpikePos;
+      int            m_nGroupIndex;
+      double         m_dThreshold;
+      double         m_dPeakUA;
+      double         m_dPeakDA;
+      double         m_dPeakUT;
+      double         m_dPeakDT;
+      unsigned int   m_nPeakUT;
+      unsigned int   m_nPeakDT;
+      double         m_dTrigT;
+      double         m_dSpikeTime;
+      unsigned int   m_nThresholdCrossingPosition;
+      unsigned int   m_nSpikePos;
       unsigned int   m_nStimIndex;
       unsigned int   m_nEpocheIndex;
       unsigned int   m_nRepetitionIndex;
       unsigned int   m_nChannelIndex;
       std::valarray<double >  m_vadData;
-      void     Init(double dSampleRate);
    public:
       double   TotalAmplitude();
       double   Peak1();
@@ -138,5 +155,6 @@ class TSWSpike
       double   ThresholdToPeak2();
 };
 //------------------------------------------------------------------------------
+
 
 #endif

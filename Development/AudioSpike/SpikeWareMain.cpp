@@ -59,6 +59,7 @@
 #include "frmCalibrationCalibrator.h"
 #include "VersionCheck.h"
 #include "frmVersionCheck.h"
+#include "frmSpikeSettings.h"
 #include <System.DateUtils.hpp>
 
 
@@ -116,6 +117,7 @@ __fastcall TformSpikeWare::TformSpikeWare(TComponent* Owner)
       m_pformSetParameters(NULL),
       m_pformSelect(NULL),
       m_pformSettings(NULL),
+      m_pformSoundSettings(NULL),
       m_pformBubbleData(NULL),
       m_pIni(NULL),
       m_pCalIni(NULL),
@@ -136,11 +138,22 @@ __fastcall TformSpikeWare::TformSpikeWare(TComponent* Owner)
 {
    EnableAllMainControls(false);
    randomize();
-   #ifndef _WIN64
-   m_usASCaption = AS_NAME + " (32bit)";
-   #else
-   m_usASCaption = AS_NAME + " (64bit)";
+
+   m_usASCaption = AS_NAME;
+   #ifdef ALPHA_VERSION
+   m_usASCaption += " alpha";
    #endif
+   #ifdef BETA_VERSION
+   m_usASCaption += " beta";
+   #endif
+
+   #ifndef _WIN64
+   m_usASCaption += " (32bit)";
+   #else
+   m_usASCaption += " (64bit)";
+   #endif
+
+
    
    Caption = m_usASCaption;
    m_pslParamStr = new TStringList();
@@ -167,12 +180,12 @@ __fastcall TformSpikeWare::TformSpikeWare(TComponent* Owner)
 
    m_pIni         = new TIniFile(GetSettingsPath() + "AudioSpike.ini");
    m_pCalIni      = new TIniFile(GetSettingsPath() + "calibration.ini");
-   m_swfFilters   = new TSWFilters(GetSettingsPath() +   "filters.ini");
+   m_swfFilters   = new TSWFilters(GetSettingsPath() + "filters.ini");
 
    ConvertIniFile();
 
    FormStyle      = m_pIni->ReadBool("Settings", "MDI", true) ? Vcl::Forms::fsMDIForm : Vcl::Forms::fsNormal;
-   m_bFreeWindows = m_pIni->ReadBool("Settings", "FreeWindows", false);
+   m_bFreeWindows = m_pIni->ReadBool("Settings", "FreeWindows", Ini_FreeWindows);
    scb->Visible   = FormStyle == Vcl::Forms::fsNormal;
 
    imFloppy->Height     = sb->Height - 6;
@@ -216,6 +229,7 @@ __fastcall TformSpikeWare::~TformSpikeWare()
       // cleanup standard tool forms
       TRYDELETENULL(m_pformSelect);
       TRYDELETENULL(m_pformSettings);
+      TRYDELETENULL(m_pformSoundSettings);
       TRYDELETENULL(m_pformSearch);
       TRYDELETENULL(m_pformSetParameters);
 
@@ -366,6 +380,7 @@ void TformSpikeWare::CreateForms()
    m_pformSetParameters = new TformSetParameters(NULL);
    m_pformSelect        = new TformSelect(NULL);
    m_pformSettings      = new TformSettings(NULL);
+   m_pformSoundSettings = new TformSoundSettings(NULL);
 
    // now the 'standard forms' with visibility managed by menu/ini
    m_pformSignalPSTH  = new TformSignalPSTH(NULL, miSignalPSTH);
@@ -626,15 +641,8 @@ void TformSpikeWare::Initialize()
 
    ReadSettings();
 
-
    if (m_bStartupInSitu)
       SetInSitu(true, true);
-
-   // settings only to be read ONCE
-   double dPreThreshold    = IniReadDouble(m_pIni, "Settings", "PreThreshold", 0.0005);
-   double dPostThreshold   = IniReadDouble(m_pIni, "Settings", "PostThreshold", 0.0);
-   double dSpikeLength     = IniReadDouble(m_pIni, "Settings", "SpikeLength", 0.0025);
-   m_swsSpikes.SetSpikeLength(dPreThreshold, dPostThreshold, dSpikeLength);
 
    m_smp.InitLibrary();
 
@@ -643,7 +651,7 @@ void TformSpikeWare::Initialize()
    SetGUIStatus();
 
    if (m_bCheckUpdateOnStartup)
-      miUpdateCheckClick(NULL);
+      acUpdateCheckExecute(NULL);
    
 }
 //------------------------------------------------------------------------------
@@ -658,23 +666,24 @@ void TformSpikeWare::ReadSettings()
 
    m_usResultPathRoot   = m_pIni->ReadString("Settings", "ResultPathRoot", ExpandFileName(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "..\\Results\\"));
    m_usResultPathRoot   = IncludeTrailingBackslash(ExpandFileName(m_usResultPathRoot));
-   bool bAutoPath       = m_pIni->ReadBool("Settings", "AutoTemplatePath", false);
+   bool bAutoPath       = m_pIni->ReadBool("Settings", "AutoTemplatePath", Ini_AutoTemplatePath);
    if (bAutoPath)
       m_usTemplatePath     = m_pIni->ReadString("Settings", "TemplatePath", ExpandFileName(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "..\\Templates\\"));
    else
       m_usTemplatePath     = m_pIni->ReadString("Settings", "LastTemplatePath", ExpandFileName(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) + "..\\Templates\\"));
 
-   int nInputClippingLimitdB = m_pIni->ReadInteger("Settings", "InputClippingLimit", -3);
+   int nInputClippingLimitdB = m_pIni->ReadInteger("Settings", "InputClippingLimit", Ini_InputClippingLimit);
    if (nInputClippingLimitdB > -1)
       nInputClippingLimitdB = -1;
    m_fInputClippingLimit   = (float)dBToFactor((double)nInputClippingLimitdB);
 
-   m_bAutoSave          = m_pIni->ReadBool("Settings", "AutoSave", false);
-   m_bSaveMAT           = m_pIni->ReadBool("Settings", "SaveMATFile", false);
+   m_bAutoSave          = m_pIni->ReadBool("Settings", "AutoSave", Ini_AutoSave);
+   m_bSaveMAT           = m_pIni->ReadBool("Settings", "SaveMATFile", Ini_SaveMATFile);
 
-   m_bSaveProbeMic      = m_pIni->ReadBool("Settings", "SaveProbeMic", true);
-   m_bStartupInSitu     = m_pIni->ReadBool("Settings", "StartupInSitu", false);
-   m_bCheckUpdateOnStartup = m_pIni->ReadBool("Settings", "CheckUpdateOnStartup", true);
+   m_bSaveProbeMic      = m_pIni->ReadBool("Settings", "SaveProbeMic", Ini_SaveProbeMic);
+   m_bStartupInSitu     = m_pIni->ReadBool("Settings", "StartupInSitu", Ini_StartupInSitu);
+   m_bCheckUpdateOnStartup = m_pIni->ReadBool("Settings", "CheckUpdateOnStartup", Ini_CheckUpdateOnStartup);
+
    if (m_bCheckUpdateOnStartup)
       {
       try
@@ -696,10 +705,10 @@ void TformSpikeWare::ReadSettings()
 //------------------------------------------------------------------------------
 void TformSpikeWare::SetStyle()
 {
-   UnicodeString us = m_pIni->ReadString("Settings", "Style", "Windows");
+   UnicodeString us = m_pIni->ReadString("Settings", "Style", Ini_Style);
    // clear deprecated style
    if (us == "Hoertech")
-      us = "Windows";
+      us = Ini_Style;
    if (!us.IsEmpty())
       TStyleManager::TrySetStyle(us);
 }
@@ -782,12 +791,22 @@ std::vector<double >& TformSpikeWare::GetThresholds()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// calls shows method on status bar
+//------------------------------------------------------------------------------
+void TformSpikeWare::ShowDetectionMethod(UnicodeString us)
+{
+   sb->Panels->Items[SB_P_METHOD]->Text = "Spike Detection: " + us;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 ///  calls LoadMeasurement with type SWLM_TEMPLATE
 //------------------------------------------------------------------------------
 bool TformSpikeWare::LoadMeasurementTemplate(UnicodeString us)
 {
    if (SaveInquiry() == ID_CANCEL)
       return false;
+   m_usLastLoadedResult = "";
    m_bDataAppended = false;
 
    if (FormsCreated())
@@ -821,11 +840,15 @@ bool TformSpikeWare::LoadMeasurementResult(UnicodeString us)
    if (!LoadMeasurement(us, SWLM_RESULT))
       return false;
 
+   m_usLastLoadedResult = us;
 
    EnsureXMLEpocheThresholds();
 
    m_usResultPath = IncludeTrailingBackslash(ExtractFilePath(xml->FileName));
    Caption = m_usASCaption + " - " + xml->FileName;
+
+   if (m_pIni->ReadBool("Settings", "AlwaysLoadEpoches", Ini_AlwaysLoadEpoches))
+      LoadEpoches(SWELM_NOSPIKES, true);
 
    SetGUIStatus(SWGS_RESULTLOADED);
 
@@ -858,7 +881,7 @@ bool TformSpikeWare::CheckReloadMeasurement()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// loads XMLs of diffeent types
+/// loads XMLs of different types
 //------------------------------------------------------------------------------
 bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
 {
@@ -923,7 +946,7 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
 
          _di_IXMLNode xmlSettings = xmlDoc->ChildNodes->FindNode("Settings");
          if (!xmlSettings)
-            throw Exception("Settings missing");
+            throw Exception("Settings node missing in XML");
 
          // NOTE: if here in-situ mode is changed, then we have to force ReadSettings in SMP!
          bool bInSitu = IsInSitu();
@@ -933,24 +956,7 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
             if (!m_smp.ReadSettings(true, true))
                return bReturn;
             }
-         // set SpikeLength and Pre-Stim if present. NOTE: milliseconds!!
-         double dPreThreshold, dPostThreshold, dSpikeLength;
-         if (TryStrToDouble(GetXMLValue(xmlSettings, "SpikeLength"), dSpikeLength))
-            dSpikeLength /= 1000.0;
-         else
-            dSpikeLength = m_swsSpikes.m_dSpikeLength;
 
-         if (TryStrToDouble(GetXMLValue(xmlSettings, "PreThreshold"), dPreThreshold))
-            dPreThreshold /= 1000.0;
-         else
-            dPreThreshold = m_swsSpikes.m_dPreThreshold;
-
-         if (TryStrToDouble(GetXMLValue(xmlSettings, "PostThreshold"), dPostThreshold))
-            dPostThreshold /= 1000.0;
-         else
-            dPostThreshold = m_swsSpikes.m_dPostThreshold;
-
-         m_swsSpikes.SetSpikeLength(dPreThreshold, dPostThreshold, dSpikeLength);
 
          double dSampleRate, dSampleRateDevider;
 
@@ -960,10 +966,82 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
          if (!TryStrToDouble(GetXMLValue(xmlSettings, "SampleRateDevider"), dSampleRateDevider))
             dSampleRateDevider = (double)m_smp.m_fDefaultSampleRateDevider;
 
-
          m_swsSpikes.SetSampleRate(dSampleRate, dSampleRateDevider);
          m_swsStimuli.m_dDeviceSampleRate = dSampleRate;
 
+
+         // continue with SpikeDetectionMethod.
+         // - set default
+         UnicodeString us = GetXMLValue(xmlSettings, "SpikeDetectionMethod");
+         if (us == "")
+            us = m_pIni->ReadString("Settings", "SpikeDetectionMethodDefault", "Version 1");
+
+         TSpikeDetectionMethodIndex sdmi = m_swsSpikes.m_sdmDetectionMethods.Name2Index(us);
+         if (sdmi == SDM_UNKNOWN)
+            throw Exception("invalid value detected for 'SpikeDetectionMethod': " + us);
+         ShowDetectionMethod(us);
+
+
+         // read Spike parameters NOTE: these are milliseconds and have to be converted to seconds!!
+
+         // default for different methods set below
+         TSpikeTimeReference str = STR_UNKNOWN;
+
+         // for detection method "Version 1" we need SpikeLength AND PreThreshold, PostThreshold is optional
+         if (sdmi == SDM_VERSION_1)
+            {
+            // NOTE SpikeLength and PreThreshold are mandatory!!
+            double dPreThreshold, dPostThreshold, dSpikeLength;
+            if (!TryStrToDouble(GetXMLValue(xmlSettings, "SpikeLength"), dSpikeLength))
+               throw Exception("'SpikeLength' missing or invalid in XML");
+            dSpikeLength /= 1000.0;
+            if (!TryStrToDouble(GetXMLValue(xmlSettings, "PreThreshold"), dPreThreshold))
+               throw Exception("'PreThreshold' missing or invalid in XML");
+            dPreThreshold /= 1000.0;
+            // PostThreshold: default is 0.0, i.e. SpikeLength - PreThreshold in the end
+            dPostThreshold = 0.0;
+            if (TryStrToDouble(GetXMLValue(xmlSettings, "PostThreshold"), dPostThreshold))
+               dPostThreshold /= 1000.0;
+            else
+               {
+               // show warning with 'don't show again' feature if no post threshold is set
+               TaskDlg( "PostThreshold missing",
+                        "The value for PostThreshold (refractory time) is 0. It value will default to SpikeLength - PreThreshold",
+                        "NoPostThreshold"
+                     );
+               }
+            str = STR_THRESHOLDCROSSING_POINT;
+            m_swsSpikes.SetDetectionMethod1(dSpikeLength, dPreThreshold, dPostThreshold);
+            }
+         // for detection method "Version 2" we only need PostThreshold, The new factor is optional
+         else if (sdmi == SDM_VERSION_2)
+            {
+            double dRefractoryTime;
+            if (!TryStrToDouble(GetXMLValue(xmlSettings, "RefractoryTime"), dRefractoryTime))
+               throw Exception("'RefractoryTime' missing or invalid in XML");
+            dRefractoryTime /= 1000.0;
+
+            double dRefractoryTimeTailFactor;
+            if (!TryStrToDouble(GetXMLValue(xmlSettings, "RefractoryTimeTailFactor"), dRefractoryTimeTailFactor))
+               dRefractoryTimeTailFactor = 1.0;
+
+            str = STR_PEAK_MINUS;
+            m_swsSpikes.SetDetectionMethod2(dRefractoryTime, dRefractoryTimeTailFactor);
+            }
+
+
+         // read the SpikeTimeReference (overwrite defaults)
+         us = GetXMLValue(xmlSettings, "SpikeTimeReference");
+         if (us != "")
+            str = m_swsSpikes.m_sdmDetectionMethods.STRName2STRIndex(us);
+         // after setting "default-on-empty" above, the returned str must NOT be unknown!!
+         if (str == STR_UNKNOWN)
+            throw Exception("invalid value detected for 'SpikeTimeReference': " + us);
+
+         SetSpikeTimeReference(str);
+
+         // get flag if spikes with only positive or only negative samples should be rejected
+         m_swsSpikes.m_bRejectSingleSignSpikes = GetXMLValue(xmlSettings, "RejectSingleSignSpikes") == "1";
 
          m_swsStimuli.m_nNumRepetitions = 1;
          m_swsStimuli.m_nRandom = 0;
@@ -998,7 +1076,7 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
          // read device channels: here we 'translate' the indices from measurement
          // (1-based) to SMP indices (0-based)
          m_smp.m_viMeasChannelsOutUsed.clear();
-         UnicodeString us = GetXMLValue(xmlSettings, "OutputChannels");
+         us = GetXMLValue(xmlSettings, "OutputChannels");
          if (us == "")
             throw Exception("No 'OutputChannels' specified");
          std::vector<int > vi;
@@ -1013,10 +1091,6 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
          if (nMode != SWLM_RESULT)
             {
             int nNumOutputs = (int)m_smp.m_swcHWChannels.GetOutputs().size();
-            #ifdef CHKCHNLS
-            if (m_smp.m_swcHWChannels.GetOutputs().size() != m_smp.m_viChannelsOutSettings.size())
-               ShowMessage("error A " + UnicodeString(__FUNC__));
-            #endif
 
             std::sort(vi.begin(), vi.end());
             if (vi.back() > nNumOutputs)
@@ -1038,10 +1112,7 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
          if (nMode != SWLM_RESULT)
             {
             int nNumInputs = (int)m_smp.m_swcHWChannels.GetElectrodes().size();
-            #ifdef CHKCHNLS
-            if (m_smp.m_swcHWChannels.GetElectrodes().size() != m_smp.m_viChannelsInSettings.size())
-               ShowMessage("error A " + UnicodeString(__FUNC__));
-            #endif
+
             std::sort(vi.begin(), vi.end());
             if (vi.back() > nNumInputs)
                throw Exception("Invalid 'InputChannels' specified (maximum available channel index is " + IntToStr(nNumInputs) + ")");
@@ -1049,7 +1120,35 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
                m_smp.m_viMeasChannelsInUsed.push_back(vi[n]-1);
             }
 
-         m_sweEpoches.Initialize(nChannelsIn, (unsigned int)(dEpocheLength * m_swsSpikes.GetSampleRate()));
+         // read inversion vector. This is optional, but if it is specified, it must
+         // have the same length as InputChannels
+         std::vector<int > vnInverted;
+         us = GetXMLValue(xmlSettings, "InputChannelsInverted");
+         if (us != "")
+            {
+            // convert into vector. last parameter false here: doublettes allowed!
+            ParseIntValues(vnInverted, us, "InputChannelsInverted", ' ', false);
+            if (vnInverted.size() != nChannelsIn)
+               throw Exception("Invalid 'InputChannelsInverted' specified (number of values must match number of input channels)");
+            }
+         // - set default (NOT inverted)
+         else
+            {
+            vnInverted.resize(nChannelsIn);
+            for (n = 0; n < vnInverted.size(); n++)
+               vnInverted[n] = 0;
+            }
+
+         unsigned int nEpocheLength = (unsigned int)(dEpocheLength * m_swsSpikes.GetSampleRate());
+         if (nMode == SWLM_RESULT)
+            {
+            if (!TryStrToInt(GetXMLValue(xmlSettings, "EpocheLengthSamples"), nVal))
+               throw Exception("Value for 'EpocheLengthSamples' missing or invalid");
+            nEpocheLength = (unsigned int)nVal;
+            }
+
+         m_sweEpoches.Initialize(nChannelsIn, nEpocheLength, vnInverted);
+         m_pformEpoches->UpdateFlipPolarityButtons();
 
          m_swsSpikes.SetNumChannels(nChannelsIn);
 
@@ -1079,7 +1178,7 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
                {
                if (m_pIni->ReadString("Settings", "Threshold_" + IntToStr((int)n), "") == "")
                   bAnyThresholdMissing = true;
-               SetThreshold(n, IniReadDouble(m_pIni, "Settings", "Threshold_" + IntToStr((int)n), 0.4), false);
+               SetThreshold(n, IniReadDouble(m_pIni, "Settings", "Threshold_" + IntToStr((int)n), Ini_Threshold), false);
                }
             }
 
@@ -1236,8 +1335,8 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
          // for templates create default cluster window, if none created
          if (nMode == SWLM_TEMPLATE && m_vpformCluster.size() == 0)
             {
-            int nX = m_swsSpikes.m_swspSpikePars.IndexFromID(m_pIni->ReadString("Settings", "DefaultClusterX", "Peak1"));
-            int nY = m_swsSpikes.m_swspSpikePars.IndexFromID(m_pIni->ReadString("Settings", "DefaultClusterY", "Peak2"));
+            int nX = m_swsSpikes.m_swspSpikePars.IndexFromID(m_pIni->ReadString("Settings", "DefaultClusterX", Ini_DefaultClusterX));
+            int nY = m_swsSpikes.m_swspSpikePars.IndexFromID(m_pIni->ReadString("Settings", "DefaultClusterY", Ini_DefaultClusterY));
             CreateClusterWindow(nX, nY, nChannelsIn);
             }
 
@@ -1262,10 +1361,7 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
       SetMeasurementChanged(false);
 
       if (m_swsStimuli.m_bRMSMissing)
-         {
-         if (m_pIni->ReadBool("Settings", "ShowRMSWarning", true))
-            m_pIni->WriteBool("Settings", "ShowRMSWarning", RMSWarning());
-         }
+         RMSWarning();
 
       bReturn = true;
       }
@@ -1275,6 +1371,7 @@ bool TformSpikeWare::LoadMeasurement(UnicodeString usFile, int nMode)
       Cleanup();
       SWErrorBox(usFile + ": " + e.Message);
       }
+
    return bReturn;
 }
 //------------------------------------------------------------------------------
@@ -1287,14 +1384,14 @@ bool TformSpikeWare::AppendMeasurement(UnicodeString usFile)
    bool bReturn = false;
    try
       {
-      if (!btnAppend->Enabled)
+      if (!acAppend->Enabled)
          throw Exception("Appending data currently not possible!");
 
       if (imFloppy->Visible)
          throw Exception("Please save current measurement before appending data!");
 
       if (FormsCreated())
-         formSpikeWare->m_pformSpikes->SetMaxSpikesMode(MNG_MEAUSUREMENT);
+         m_pformSpikes->SetMaxSpikesMode(MNG_MEAUSUREMENT);
 
       xml->Active = true;
       _di_IXMLNode xmlDoc        = xml->DocumentElement;
@@ -1455,10 +1552,10 @@ bool TformSpikeWare::AppendMeasurement(UnicodeString usFile)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback btnFreeSearch: enters free search mode
+/// OnExecute callback acFreeSearch: enters free search mode
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnFreeSearchClick(TObject *Sender)
+void __fastcall TformSpikeWare::acFreeSearchExecute(TObject *Sender)
 {
    if (InitFreeSearch())
       m_pformSearchFree->ShowFreeSearch();
@@ -1474,23 +1571,48 @@ bool TformSpikeWare::InitFreeSearch()
       return false;
 
    bool bReturn = false;
+
    try
       {
       Cleanup();
+
       // NOTE: ReadSettings shows error itself
       if (!m_smp.ReadSettings())
          return bReturn;
 
-      #pragma clang diagnostic push
-      #pragma clang diagnostic ignored "-Wfloat-equal"
-      // now store flag if we have to reload a measurement in RunMeasurement later
-      if (  m_swsSpikes.GetSampleRate() != (double)m_smp.m_fDefaultSampleRate
-         || m_swsSpikes.m_dSampleRateDevider != 1.0
-         )
-         m_bForceReloadMeasurement = true;
-      #pragma clang diagnostic pop
 
       m_swsSpikes.SetSampleRate((double)m_smp.m_fDefaultSampleRate, 1.0);
+
+      UnicodeString us = m_pIni->ReadString("Settings", "SpikeDetectionMethod", m_swsSpikes.m_sdmDetectionMethods.GetMethodNameDefault());
+      TSpikeDetectionMethodIndex sdmi = m_swsSpikes.m_sdmDetectionMethods.Name2Index(us);
+      ShowDetectionMethod(us);
+
+
+      if (sdmi == SDM_VERSION_1)
+         {
+         // set values for free serach
+         double dPreThreshold    = IniReadDouble(m_pIni, "Settings", "PreThreshold", Ini_PreThreshold);
+         double dPostThreshold   = IniReadDouble(m_pIni, "Settings", "PostThreshold", Ini_PostThreshold);
+         double dSpikeLength     = IniReadDouble(m_pIni, "Settings", "SpikeLength", Ini_SpikeLength);
+         m_swsSpikes.SetDetectionMethod1(dSpikeLength, dPreThreshold, dPostThreshold);
+         }
+      else if (sdmi == SDM_VERSION_2)
+         {
+         double dRefractoryTime = IniReadDouble(m_pIni, "Settings", "RefractoryTime", Ini_RefractoryTime);
+         double dRefractoryTimeTailFactor = IniReadDouble(m_pIni, "Settings", "RefractoryTimeTailFactor", Ini_RefractoryTimeTailFactor);
+         m_swsSpikes.SetDetectionMethod2(dRefractoryTime, dRefractoryTimeTailFactor);
+
+         TSpikeTimeReference str = m_pIni->ReadBool("Settings", "SpikeTimeReferencePeak+", Ini_SpikeTimeReferencePeakPos) ? STR_PEAK_PLUS : STR_PEAK_MINUS;
+         SetSpikeTimeReference(str);
+         }
+
+
+      m_swsSpikes.m_bRejectSingleSignSpikes = m_pIni->ReadBool("Settings", "RejectSingleSignSpikes", Ini_RejectSingleSignSpikes);
+
+      m_sweEpoches.SetInverted(m_pIni->ReadBool("Settings", "FlipPolarity", Ini_FlipPolarity));
+      m_pformEpoches->UpdateFlipPolarityButtons();
+
+
       m_swsStimuli.m_dDeviceSampleRate = (double)m_smp.m_fDefaultSampleRate;
 
       m_swsStimuli.m_nNumRepetitions = 1;
@@ -1505,23 +1627,25 @@ bool TformSpikeWare::InitFreeSearch()
       m_smp.Exit();
       bReturn = m_smp.Init(AS_SMP_INIT_FREESEARCH);
 
-
       if (bReturn)
          {
-         #ifdef CHKCHNLS
-         if (formSpikeWare->m_smp.m_swcHWChannels.GetElectrodes().size() != m_smp.m_viChannelsInSettings.size())
-            ShowMessage("error B " + UnicodeString(__FUNC__));
-         #endif
-         unsigned int nChannelsIn = (unsigned int)formSpikeWare->m_smp.m_swcHWChannels.GetElectrodes().size();
-         m_sweEpoches.Initialize(nChannelsIn, (unsigned int)m_sweEpoches.m_nRepetitionPeriod);
+         unsigned int nChannelsIn = (unsigned int)m_smp.m_swcHWChannels.GetElectrodes().size();
+         // create inversion vector from default setting!
+         std::vector<int > vnInverted(nChannelsIn);
+         int nFlip = (int)m_pIni->ReadBool("Settings", "FlipPolarity", Ini_FlipPolarity);
+         unsigned int n;
+         for (n = 0; n < vnInverted.size(); n++)
+            vnInverted[n] = nFlip;
+
+
+         m_sweEpoches.Initialize(nChannelsIn, (unsigned int)m_sweEpoches.m_nRepetitionPeriod, vnInverted);
          m_swsSpikes.SetNumChannels(nChannelsIn);
          m_pformEpoches->Initialize((int)nChannelsIn);
 
          if (m_gs < SWGS_LOADED)
             {
-            unsigned int n;
             for (n = 0; n < nChannelsIn; n++)
-               SetThreshold(n, IniReadDouble(m_pIni, "Settings", "Threshold_" + IntToStr((int)n), 0.4), false);
+               SetThreshold(n, IniReadDouble(m_pIni, "Settings", "Threshold_" + IntToStr((int)n), Ini_Threshold), false);
             }
 
          // add param (mandatory)
@@ -1552,6 +1676,7 @@ bool TformSpikeWare::InitFreeSearch()
       bReturn = false;
       SWErrorBox(e.Message);
       }
+
    return bReturn;
 }
 //------------------------------------------------------------------------------
@@ -1594,9 +1719,139 @@ int TformSpikeWare::EpochesXML(bool bDone)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// loads epoches from current XML, flips (selectable) channels and saves it again
+//------------------------------------------------------------------------------
+bool TformSpikeWare::FlipEpoches()
+{
+   if (ID_YES != MessageBox(  Handle,
+                              "This will process the raw 'epoches.pcm' file of the measurement by flipping the selected channels. Do you want to continue?",
+                              "Question",
+                              MB_ICONQUESTION | MB_YESNO)
+                           )
+      return false;
+
+   try
+      {
+      unsigned int nChannels     = (unsigned int)m_sweEpoches.m_vvfEpoche.size();
+      unsigned int nSamples      = (unsigned int)m_sweEpoches.m_vvfEpoche[0].size();
+      unsigned int nXMLEpoches   = (unsigned int)EpochesXML(true);
+      if (!nChannels || !nSamples || !nXMLEpoches)
+         return false;
+
+      UnicodeString usEpocheFile = m_usResultPath + "epoches.pcm";
+      if (!FileExists(usEpocheFile))
+         throw Exception("Epoche file '" + usEpocheFile + "' cannot be found");
+      UnicodeString usEpocheFileOld = usEpocheFile + ".unflipped";
+
+      unsigned int n;
+      std::valarray<bool > vaFlip(nChannels);
+      vaFlip = true;
+
+      // show channel selection, if more than one channel
+      if (nChannels > 1)
+         {
+         TformSelectChannels* pfrm = new TformSelectChannels(NULL);
+         try
+            {
+            pfrm->Caption = "Select channels to be flipped";
+            for (n = 0; n < nChannels; n++)
+               {
+               pfrm->clb->Items->Add("Channel " + IntToStr((int)n+1));
+               pfrm->clb->Checked[(int)n] = true;
+               }
+
+            if (pfrm->ShowModal() != mrOk)
+               return false;
+
+            for (n = 0; n < vaFlip.size(); n++)
+               vaFlip[n] = pfrm->clb->Checked[(int)n];
+            }
+         __finally
+            {
+            TRYDELETENULL(pfrm);
+            }
+         }
+      TMemoryStream *pms    = new TMemoryStream();
+      TFileStream *pfsIn    = NULL;
+      TFileStream *pfsOut   = NULL;
+
+      if (FileExists(usEpocheFileOld))
+         DeleteFile(usEpocheFileOld);
+      RenameFile(usEpocheFile, usEpocheFileOld);
+
+      try
+         {
+         try
+            {
+
+            pfsIn = new TFileStream(usEpocheFileOld, fmOpenRead | fmShareDenyNone);
+            // check size. MUST fit!
+            unsigned int nEpoches = (unsigned int)pfsIn->Size / sizeof(float) / nSamples / nChannels;
+            if (nXMLEpoches != nEpoches)
+               throw Exception("result XML contains " + IntToStr((int)nXMLEpoches) + " epoches, but audio data " + IntToStr((int)nEpoches));
+
+            pfsOut = new TFileStream(usEpocheFile, fmCreate | fmShareDenyWrite);
+
+            // read/write epoche-wise
+            unsigned int nE, nC;
+            pms->Size = nChannels*nSamples*sizeof(float);
+
+            for (nE = 0; nE < nEpoches; nE++)
+               {
+               pms->Position = 0;
+               pfsIn->ReadBuffer(pms->Memory, (NativeInt)pms->Size);
+               float*  pf = (float*)pms->Memory;
+               for (n = 0; n < nSamples; n++)
+                  {
+                  for (nC = 0; nC < nChannels; nC++)
+                     {
+                     if (vaFlip[nC])
+                        {
+                        *pf = -*pf;
+                        }
+                     pf++;
+                     }
+                  }
+               pfsOut->WriteBuffer(pms->Memory, (NativeInt)pms->Size);
+               }
+            }
+         __finally
+            {
+            TRYDELETENULL(pms);
+            TRYDELETENULL(pfsIn);
+            TRYDELETENULL(pfsOut);
+            }
+         }
+      catch (...)
+         {
+         if (FileExists(usEpocheFile))
+            DeleteFile(usEpocheFile);
+         RenameFile(usEpocheFileOld, usEpocheFile);
+         throw;
+         }
+      if (FileExists(usEpocheFileOld))
+         DeleteFile(usEpocheFileOld);
+      // show warning with 'don't show again' feature if no post threshold is set
+      TaskDlg( "Flipping Epoches Done",
+               "The epoches file was modified successfully. The spikes were NOT rescanned. Adjust your thresholds and spike detection values and rescan!",
+               "FlipEpochesDone"
+            );
+
+      return true;
+      }
+   catch (Exception &e)
+      {
+      SWErrorBox(e.Message);
+      }
+   return false;
+
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 /// loads epoches from current XML in different modes
 //------------------------------------------------------------------------------
-void TformSpikeWare::LoadEpoches(TEpocheLoadMode nELM)
+void TformSpikeWare::LoadEpoches(TEpocheLoadMode nELM, bool bQuietOnMissing)
 {
    if (!FormsCreated())
       return;
@@ -1607,7 +1862,11 @@ void TformSpikeWare::LoadEpoches(TEpocheLoadMode nELM)
    UnicodeString usEpocheFile = m_usResultPath + "epoches.pcm";
 
    if (!FileExists(usEpocheFile))
+      {
+      if (bQuietOnMissing)
+         return;
       throw Exception("Epoche file '" + usEpocheFile + "' cannot be found");
+      }
 
    m_pformEpoches->tbEpoches->OnChange = NULL;
    m_pformEpoches->tbEpoches->Max = 0;
@@ -1648,6 +1907,14 @@ void TformSpikeWare::LoadEpoches(TEpocheLoadMode nELM)
       {
       pfs = new TFileStream(usEpocheFile, fmOpenRead | fmShareDenyNone);
       unsigned int nEpoches = (unsigned int)pfs->Size / sizeof(float) / nSamples / nChannelsIn;
+/*
+int xx = (nXMLEpoches * nSamples * sizeof(float)) - pfs->Size;
+
+
+ShowMessage(nSamples);
+ShowMessage(xx);
+*/
+
       if (nXMLEpoches != nEpoches)
          throw Exception("result XML contains " + IntToStr((int)nXMLEpoches) + " epoches, but audio data " + IntToStr((int)nEpoches));
       unsigned int nChannel, nEpoche;
@@ -1661,7 +1928,7 @@ void TformSpikeWare::LoadEpoches(TEpocheLoadMode nELM)
          _di_IXMLNode xmlEpocheNode  = xmlEpocheNodes->ChildNodes->Nodes[nEpoche];
 
          if (nELM == SWELM_SPIKES_RESET_THRESHOLD)
-            SetXMLEpocheThreshold(xmlEpocheNode, m_sweEpoches.m_vdThreshold); //m_sweEpoches.m_vdThreshold);
+            SetXMLEpocheThreshold(xmlEpocheNode, m_sweEpoches.m_vdThreshold);
 
          // - use epoche thresholds or global thresholds (if to be resetted)
          pswe = m_sweEpoches.Push(  vvfData,
@@ -1671,10 +1938,11 @@ void TformSpikeWare::LoadEpoches(TEpocheLoadMode nELM)
                                     (unsigned int)StrToInt(xmlEpocheNode->ChildValues["RepetitionIndex"] - 1)
                                     );
          if (nELM > SWELM_NOSPIKES)
+            {
             m_swsSpikes.Add(pswe);
+            }
          pswe->ClearData();
          }
-
       // plot last epoche
       pswe = m_sweEpoches.Get();
       if (pswe)
@@ -1684,15 +1952,17 @@ void TformSpikeWare::LoadEpoches(TEpocheLoadMode nELM)
          m_pformEpoches->tbEpoches->Position = m_pformEpoches->tbEpoches->Max;
          }
 
-      PlotSpikes();
-      PlotClusters();
+      if (nELM > SWELM_NOSPIKES)
+         {
+         PlotSpikes();
+         PlotClusters();
+         }
       }
    __finally
       {
       TRYDELETENULL(pfs);
       formWait->Hide();
       m_pformEpoches->tbEpoches->OnChange = m_pformEpoches->tbEpochesChange;
-
       }
 
    m_pformEpoches->EnableEpocheScrolling(true);
@@ -1978,6 +2248,50 @@ void TformSpikeWare::CreateXMLEpoches(std::vector<int >* pvn)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// writes current SpikeTimeReference back to XML
+//------------------------------------------------------------------------------
+void TformSpikeWare::WriteSpikeTimeReference(void)
+{
+   _di_IXMLNode xmlSettings = xml->DocumentElement->ChildNodes->FindNode("Settings");
+   if (!xmlSettings)
+      throw Exception("Settings node missing in XML");
+   xmlSettings->ChildValues["SpikeTimeReference"] = m_swsSpikes.m_sdmDetectionMethods.GetSpikeTimeReference(SDM_VERSION_2) == STR_PEAK_PLUS ? "Peak+" : "Peak-";
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// writes current inverted channels back to XML
+//------------------------------------------------------------------------------
+void TformSpikeWare::WriteInvertedChannels(void)
+{
+   _di_IXMLNode xmlSettings = xml->DocumentElement->ChildNodes->FindNode("Settings");
+   if (!xmlSettings)
+      throw Exception("Settings node missing in XML");
+   unsigned int n;
+   UnicodeString us = "[";
+   for (n = 0; n < m_sweEpoches.m_vnInverted.size(); n++)
+      {
+      us += IntToStr(m_sweEpoches.m_vnInverted[n]) + " ";
+      }
+   us = Trim(us) + "]";
+   // write it back to XML, so that it's stored eventually!
+   xmlSettings->ChildValues["InputChannelsInverted"] = us;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// writes current RejectSingleSignSpikes back to XML
+//------------------------------------------------------------------------------
+void TformSpikeWare::WriteRejectSingleSignSpikes(void)
+{
+   _di_IXMLNode xmlSettings = xml->DocumentElement->ChildNodes->FindNode("Settings");
+   if (!xmlSettings)
+      throw Exception("Settings node missing in XML");
+   xmlSettings->ChildValues["RejectSingleSignSpikes"] = m_swsSpikes.m_bRejectSingleSignSpikes ? "1" : "0";
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 /// shows save inquiry for change measurement data
 //------------------------------------------------------------------------------
 int  TformSpikeWare::SaveInquiry()
@@ -2095,15 +2409,31 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
       if (!xmlSettings)
          throw Exception("Settings node unexpectedly missing");
 
-      // spike length and pre-threshold
-      xmlSettings->ChildValues["SpikeLength"] = DoubleToStr(1000.0 * m_swsSpikes.m_dSpikeLength);
-      // epoche length in Samples
-      xmlSettings->ChildValues["PreThreshold"] = DoubleToStr(1000.0 * m_swsSpikes.m_dPreThreshold);
+      // spike length, pre-threshold and post-threshold
+      xmlSettings->ChildValues["Version"] = GetFileVersion();
+
+      TSpikeDetectionMethodIndex sdmi = m_swsSpikes.m_sdmDetectionMethods.GetMethodIndex();
+
+      xmlSettings->ChildValues["SpikeDetectionMethod"] = m_swsSpikes.m_sdmDetectionMethods.GetMethodName();
+      xmlSettings->ChildValues["SpikeLength"] = DoubleToStr(1000.0 * m_swsSpikes.GetSpikeLength());
+      if (sdmi == SDM_VERSION_1)
+         {
+         xmlSettings->ChildValues["PreThreshold"] = DoubleToStr(1000.0 * m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[sdmi]->GetVariable("PreThreshold"));
+         xmlSettings->ChildValues["PostThreshold"] = DoubleToStr(1000.0 * m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[sdmi]->GetVariable("PostThreshold"));
+         }
+      else if (sdmi == SDM_VERSION_2)
+         {
+         xmlSettings->ChildValues["RefractoryTime"] = DoubleToStr(1000.0 * m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[sdmi]->GetVariable("RefractoryTime"));
+         xmlSettings->ChildValues["RefractoryTimeTailFactor"] = DoubleToStr(m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[sdmi]->GetVariable("RefractoryTimeTailFactor"));
+         }
+
+      WriteSpikeTimeReference();
+      WriteRejectSingleSignSpikes();
 
       // epoche length in Samples
       xmlSettings->ChildValues["EpocheLengthSamples"] = IntToStr((int)m_sweEpoches.m_vvfEpoche[0].size());
       // spike length in Samples
-      xmlSettings->ChildValues["SpikeLengthSamples"]  = IntToStr(m_swsSpikes.m_nSpikeLength);
+      xmlSettings->ChildValues["SpikeLengthSamples"]  = IntToStr((int)m_swsSpikes.GetSpikeLengthSamples());
       // save thresholds
       UnicodeString usThresholds = "[";
       unsigned int n;
@@ -2189,96 +2519,6 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
          }
 
 
-      // Below is the "old" spike saving routine using the DOM parser for each spike: horribly slow!
-      #ifdef OLD_SPIKE_SAVING
-      // write Spikes and NonSelectedSpikes to different nodes in XML
-      _di_IXMLNode xmlSpikes = xmlResultNode->ChildNodes->FindNode("Spikes");
-      if (!!xmlSpikes)
-         xmlResultNode->ChildNodes->Remove(xmlSpikes);
-      xmlSpikes = xmlResultNode->AddChild("Spikes");
-
-      _di_IXMLNode xmlNonSelectedSpikes = xmlResultNode->ChildNodes->FindNode("NonSelectedSpikes");
-      if (!!xmlNonSelectedSpikes)
-         xmlResultNode->ChildNodes->Remove(xmlNonSelectedSpikes);
-      xmlNonSelectedSpikes = xmlResultNode->AddChild("NonSelectedSpikes");
-
-      unsigned int nPar, nSpikes, nSpike;
-      int nSpikeGroup;
-      UnicodeString usLevel;
-      UnicodeString usProgress = ".";
-
-      for (nChannel = 0; nChannel < m_swsSpikes.m_vvSpikes.size(); nChannel++)
-         {
-         nSpikes = m_swsSpikes.GetNumSpikes(nChannel);
-         for (nSpike = 0; nSpike < nSpikes; nSpike++)
-            {
-            if ((nSpike % 1000) == 0)
-               {
-               usProgress += ".";
-               if (usProgress.Length() > 10)
-                  usProgress = ".";
-               formWait->ShowWait("Saving result, please wait" + usProgress);
-               }
-
-            _di_IXMLNode xmlSpike;
-            // not selected?
-            nSpikeGroup = m_swsSpikes.GetSpikeGroup(nChannel, nSpike);
-            if (nSpikeGroup < 0)
-               xmlSpike = xmlNonSelectedSpikes->AddChild("Spike");
-            else
-               {
-               xmlSpike = xmlSpikes->AddChild("Spike");
-               xmlSpike->ChildValues["SpikeGroup"]  = IntToStr((int)nSpikeGroup+1);
-               }
-
-            std::vector<double >& rvdParams =
-               m_swsStimuli.m_swstStimuli[m_swsSpikes.GetStimIndex(nChannel, nSpike)].m_vdParams;
-            std::vector<UnicodeString >& rvusParams =
-               m_swsStimuli.m_swstStimuli[m_swsSpikes.GetStimIndex(nChannel, nSpike)].m_vusParams;
-
-
-            // NOTE: we write ALL spike parameters 1-based (grace for MATLAB users)
-            xmlSpike->ChildValues["SpikeTime"]  = DoubleToStr(m_swsSpikes.GetSpikeTime(nChannel, nSpike));
-            xmlSpike->ChildValues["SpikePosition"] = IntToStr((int)m_swsSpikes.GetSpikePosition(nChannel, nSpike)+1);
-            xmlSpike->ChildValues["StimIndex"]  = IntToStr((int)m_swsSpikes.GetStimIndex(nChannel, nSpike)+1);
-            xmlSpike->ChildValues["EpocheIndex"]= IntToStr((int)m_swsSpikes.GetEpocheIndex(nChannel, nSpike)+1);
-            xmlSpike->ChildValues["Channel"]    = IntToStr((int)nChannel+1);
-            xmlSpike->ChildValues["RepetitionIndex"] = IntToStr((int)m_swsSpikes.GetRepetitionIndex(nChannel, nSpike)+1);
-            xmlSpike->ChildValues["Threshold"]  = DoubleToStr(m_swsSpikes.GetThreshold(nChannel, nSpike));
-
-
-            // write parameters with special handling of levels
-            usLevel = "[";
-            for (nPar = 0; nPar < m_swsStimuli.m_swspStimPars.m_vusNames.size(); nPar++)
-               {
-               UnicodeString us = StringReplace(m_swsStimuli.m_swspStimPars.m_vusNames[nPar], " ", "_", TReplaceFlags() << rfReplaceAll );
-               if (us.Pos("Level_") == 1)
-                  {
-                  usLevel += DoubleToStr(rvdParams[nPar]) + " ";
-                  continue;
-                  }
-               if (m_swsStimuli.m_swspStimPars.m_vbString[nPar])
-                  xmlSpike->ChildValues[us] = rvusParams[nPar];
-               else
-                  xmlSpike->ChildValues[us] = DoubleToStr(rvdParams[nPar]);
-               }
-            usLevel = Trim(usLevel) + "]";
-            xmlSpike->ChildValues["Level"] = usLevel;
-
-
-            // If not denied from settings, write all spike parameters as well
-            if (xmlSettings->ChildValues["SaveSpikeParams"] != "0")
-               {
-               for (nPar = 0; nPar < m_swsSpikes.m_swspSpikePars.m_vusIDs.size(); nPar++)
-                  xmlSpike->ChildValues[m_swsSpikes.m_swspSpikePars.m_vusIDs[nPar]]  = DoubleToStr(m_swsSpikes.GetSpikeParam(nChannel, nSpike, (TSpikeParam)nPar));
-               }
-
-            // store raw spike data
-            AnsiString as = EncodeBase64(&m_swsSpikes.GetSpike(nChannel, nSpike)[0], (int)(m_swsSpikes.GetSpike(nChannel, nSpike).size()*sizeof(double)));
-            xmlSpike->ChildValues["Data"] = as;
-            }
-         }
-      #else  // #ifdef OLD_SPIKE_SAVING
       // write Spikes and NonSelectedSpikes to different nodes in XML
       // NOTE: here we write the complete nodes as strings and add them to xml->XML->Text manually because
       // it is horribly slow to add them using the DOM-Parser!!
@@ -2321,11 +2561,15 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
             // NOTE: we write ALL spike parameters 1-based (grace for MATLAB users)
             usSpike += "<SpikeTime>" + DoubleToStr(m_swsSpikes.GetSpikeTime(nChannel, nSpike)) + "</SpikeTime>";
             usSpike += "<SpikePosition>" + IntToStr((int)m_swsSpikes.GetSpikePosition(nChannel, nSpike)+1) + "</SpikePosition>";
+            usSpike += "<ThresholdCrossingPosition>" + IntToStr((int)m_swsSpikes.GetThresholdCrossingPosition(nChannel, nSpike)+1) + "</ThresholdCrossingPosition>";
             usSpike += "<StimIndex>" + IntToStr((int)m_swsSpikes.GetStimIndex(nChannel, nSpike)+1) + "</StimIndex>";
             usSpike += "<EpocheIndex>" + IntToStr((int)m_swsSpikes.GetEpocheIndex(nChannel, nSpike)+1) + "</EpocheIndex>";
             usSpike += "<Channel>" + IntToStr((int)nChannel+1) + "</Channel>";
             usSpike += "<RepetitionIndex>" + IntToStr((int)m_swsSpikes.GetRepetitionIndex(nChannel, nSpike)+1) + "</RepetitionIndex>";
             usSpike += "<Threshold>" + DoubleToStr(m_swsSpikes.GetThreshold(nChannel, nSpike)) + "</Threshold>";
+            // save Peak+ and Peak- times additionally -  and ALWAYS: needed to get peaks on reloading (at least for spike detection method Version 2)!!
+            usSpike += "<PeakPosPosition>" + IntToStr((int)m_swsSpikes.GetSpikePeakPosPosition(nChannel, nSpike)+1) + "</PeakPosPosition>";
+            usSpike += "<PeakNegPosition>" + IntToStr((int)m_swsSpikes.GetSpikePeakNegPosition(nChannel, nSpike)+1) + "</PeakNegPosition>";
 
             std::vector<double >& rvdParams =
                m_swsStimuli.m_swstStimuli[m_swsSpikes.GetStimIndex(nChannel, nSpike)].m_vdParams;
@@ -2386,10 +2630,9 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
 
       xml->XML->Text = usXMLTmp;
       xml->Active = true;
-      #endif // #ifdef OLD_SPIKE_SAVING
 
 
-      // find file with highest index (10000-based)
+      // find existing file with highest index (10000-based)
       UnicodeString usFileName;
       int nMax = 9999;
       bool bResultExists = false;
@@ -2402,6 +2645,12 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
             break;
             }
          }
+
+      // now check if we have loaded a result before!!
+      // If so we need to use that name for overwriting!!
+      if (m_usLastLoadedResult != "")
+         usFileName = m_usLastLoadedResult;
+
       if (bResultExists)
          {
          if (bForceNewResult)
@@ -2409,7 +2658,7 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
          else
             {
             int nReturn = MessageBox(  formWait->Handle,
-                                 "A result file already exists. Do you want to overwrite it (No creates a result file with a new index",
+                                 "The result file already exists. Do you want to overwrite it (No creates a result file with a new index",
                                  "",
                                  MB_YESNOCANCEL | MB_ICONQUESTION);
             if (nReturn == ID_CANCEL)
@@ -2420,10 +2669,8 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
          }
 
 
-
-
       // NOTE: FormatXMLData is very slow, thus we save 'unformatted' by default
-      if (m_pIni->ReadBool("Settings", "FormatXML", false))
+      if (m_pIni->ReadBool("Settings", "FormatXML", Ini_FormatXML))
          {
          xmlSave->Active = false;
          xmlSave->XML->Text = FormatXMLData(xml->XML->Text);
@@ -2474,13 +2721,17 @@ int TformSpikeWare::SaveResult(bool bForceNewResult)
                }
             else
                {
-               WaitForSingleObject( pinfo.hProcess, 10000);
+               int nTimeOut = m_pIni->ReadInteger("Settings", "MATFileTimeout", 60);
+               if (nTimeOut < 10)
+                  nTimeOut = 10;
+
+               WaitForSingleObject( pinfo.hProcess, (DWORD)(nTimeOut * 1000));
                DWORD dw;
                GetExitCodeProcess(pinfo.hProcess, &dw);
                if (dw != 0)
-                  SWErrorBox("An error occurred within 'AudioSpike2MAT': MAT file not valid");
+                  SWErrorBox("A timeout occurred within 'AudioSpike2MAT': MAT file not created");
                }
-         
+
          }
 
 
@@ -2526,13 +2777,14 @@ void TformSpikeWare::SetAutoResultPath(UnicodeString usSubPath)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnRun: starts measurement
+/// OnExecute callback of acRun: starts measurement
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnRunClick(TObject *Sender)
+void __fastcall TformSpikeWare::acRunExecute(TObject *Sender)
 {
    if (m_gs == SWGS_FREESEARCHSTOP || m_gs == SWGS_FREESEARCHRUN)
       return;
+
 
    // run button may :
    // 1- run new measurement (gs == SWGS_LOADED)
@@ -2586,10 +2838,10 @@ void __fastcall TformSpikeWare::btnRunClick(TObject *Sender)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnStop: stops measurement
+/// OnExecute callback of acStop: stops measurement
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnStopClick(TObject *Sender)
+void __fastcall TformSpikeWare::acStopExecute(TObject *Sender)
 {
    if (m_gs == SWGS_FREESEARCHSTOP || m_gs == SWGS_FREESEARCHRUN)
       return;
@@ -2619,12 +2871,12 @@ void __fastcall TformSpikeWare::btnStopClick(TObject *Sender)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnPause: toggles pause status of measurement
+/// OnExecute callback of acPause: toggles pause status of measurement
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnPauseClick(TObject *Sender)
+void __fastcall TformSpikeWare::acPauseExecute(TObject *Sender)
 {
-   btnPause->Enabled = false;
+   acPause->Enabled = false;
    btnPause->Tag = !btnPause->Tag;
 
    if (btnPause->Tag)
@@ -2636,7 +2888,7 @@ void __fastcall TformSpikeWare::btnPauseClick(TObject *Sender)
       {
       RunMeasurement(true);
       }
-   btnPause->Enabled = true;
+   acPause->Enabled = true;
 }
 //------------------------------------------------------------------------------
 
@@ -2647,9 +2899,11 @@ TSWRunResult TformSpikeWare::RunMeasurement(bool bResume)
 {
    TSWRunResult swrr = SWRR_ERROR;
 
+
    // reload measuremet if needed
    if (!CheckReloadMeasurement())
       return swrr;
+
 
    if (!m_smp.Init())
       return swrr;
@@ -2678,6 +2932,14 @@ TSWRunResult TformSpikeWare::RunMeasurement(bool bResume)
             {
             formWait->ShowWait("Creating data structures, this may take a while ...");
             CreateXMLEpoches();
+
+            // write SpikeTimeReference again: might have been changed on GUI!!
+            WriteSpikeTimeReference();
+
+            // write Inverted Channels and RejectSingleSignSpikes: might have been changed on GUI!!
+            WriteInvertedChannels();
+            WriteRejectSingleSignSpikes();
+
             // ... and PCM data saving
             m_sweEpoches.InitSave();
             formWait->Hide();
@@ -2700,7 +2962,14 @@ TSWRunResult TformSpikeWare::RunMeasurement(bool bResume)
 
             // autosave
             if (m_bAutoSave)
-               SaveResult();
+               {
+               // check if we are done:
+               if (m_nStimPlayIndex >= (int)(m_swsStimuli.m_swstStimuli.size() * m_swsStimuli.m_nNumRepetitions))
+                  {
+                  // OutputDebugString("AUTOSAVE");
+                  SaveResult();
+                  }
+               }
             }
          else
             swrr = SWRR_PAUSE;
@@ -2755,10 +3024,10 @@ void __fastcall TformSpikeWare::TriggerTest()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnSearch: starts search mode (by stimulus list)
+/// OnExecute callback of acSearch: starts search mode (by stimulus list)
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnSearchClick(TObject *Sender)
+void __fastcall TformSpikeWare::acSearchExecute(TObject *Sender)
 {
    if (!FormsCreated())
       return;
@@ -2888,7 +3157,7 @@ void TformSpikeWare::PlotClusters()
 //------------------------------------------------------------------------------
 /// toggles visiblity of particular forms
 //------------------------------------------------------------------------------
-void __fastcall TformSpikeWare::miFormToggleClick(TObject *Sender)
+void __fastcall TformSpikeWare::acFormToggleExecute(TObject *Sender)
 {
    TMenuItem* mi = (TMenuItem*)Sender;
    TForm* pfrm = (TForm*)mi->Tag;
@@ -3070,20 +3339,20 @@ void TformSpikeWare::CreateParameterWindow(int nX, int nY)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnCluster: calls CreateClusterWindow
+/// OnExecute callback of acCluster: calls CreateClusterWindow
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnClusterClick(TObject *Sender)
+void __fastcall TformSpikeWare::acClusterExecute(TObject *Sender)
 {
    CreateClusterWindow(-1, -1, (unsigned int)m_swsSpikes.m_vvSpikes.size());
 }
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnParam: calls CreateParameterWindow
+/// OnExecute callback of acParam: calls CreateParameterWindow
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnParamClick(TObject *Sender)
+void __fastcall TformSpikeWare::acParamExecute(TObject *Sender)
 {
    CreateParameterWindow();
 }
@@ -3345,7 +3614,10 @@ void TformSpikeWare::SMPBufferDoneProc(vvf &vvfBuffers)
 {
    try
       {
-      formSpikeWare->m_sweEpoches.SoundProc(vvfBuffers, formSpikeWare->m_bTriggerTestRunning);
+      if (formSpikeWare->m_bTriggerTestRunning)
+         formSpikeWare->m_sweEpoches.SoundProcTriggerTest(vvfBuffers);
+      else
+         formSpikeWare->m_sweEpoches.SoundProc(vvfBuffers);
       }
    catch (Exception &e)
       {
@@ -3398,8 +3670,8 @@ bool TformSpikeWare::UpdateStimulusDisplay()
       return false;
 
    // show current stimulus and repetition
-   int nNumStim   = (int)(int)m_swsStimuli.m_swstStimuli.size();
-   int nStimIndex =  (m_nStimPlayIndex % nNumStim) + 1;
+   int nNumStim   = (int)m_swsStimuli.m_swstStimuli.size();
+   int nStimIndex = (m_nStimPlayIndex % nNumStim) + 1;
 
    UnicodeString us = "Stimuli - Repetition ";
    us += IntToStr(m_viRepetitionSequence[(unsigned int)m_nStimPlayIndex]+1) + "/" + IntToStr((int)m_swsStimuli.m_nNumRepetitions);
@@ -3416,7 +3688,7 @@ bool TformSpikeWare::UpdateStimulusDisplay()
       int n = m_smp.GetXRuns();
       if (n > 1)
          {
-         btnStopClick(NULL);
+         acStopExecute(NULL);
          SWErrorBox("A buffer underrun error occurred. The measurement was stopped! Check your hardware!");
          return false;
          }
@@ -3476,7 +3748,7 @@ void __fastcall TformSpikeWare::EpocheTimerTimer(TObject *Sender)
          if (m_bFreeSearchRunning)
             m_pformSearchFree->btnStopClick(NULL);
          else
-            btnStopClick(NULL);
+            acStopExecute(NULL);
          SWErrorBox("A trigger error occurred (jitter: "
                      + m_sweEpoches.m_usTriggerError
                      + ", xruns: "
@@ -3490,7 +3762,7 @@ void __fastcall TformSpikeWare::EpocheTimerTimer(TObject *Sender)
          if (m_bFreeSearchRunning)
             m_pformSearchFree->btnStopClick(NULL);
          else
-            btnStopClick(NULL);
+            acStopExecute(NULL);
          SWErrorBox("The first trigger could not be found (error " + IntToStr(m_sweEpoches.m_nFirstTriggerError) + ") . The measurement was stopped! Please check your hardware!");
          return;
          }
@@ -3565,57 +3837,40 @@ bool TformSpikeWare::ProcessEpoches()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback for miSettings: shows settings dialog
+/// OnExecute callback for acSettings: shows settings dialog
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::miSettingsClick(TObject *Sender)
+void __fastcall TformSpikeWare::acSettingsExecute(TObject *Sender)
 {
    if (!FormsCreated())
       return;
 
-   m_smp.ReadSettings(false, true);
    m_pformSettings->ShowModal();
-
 
    ReadSettings();
 }
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of miAdjustSpikeLength: updates spike length and - if it 
-/// has changed at all - run a rescan
+/// OnExecute callback for acSoundSettings: shows sound settings dialog
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::miAdjustSpikeLengthClick(TObject *Sender)
+void __fastcall TformSpikeWare::acSoundSettingsExecute(TObject *Sender)
 {
    if (!FormsCreated())
       return;
 
-   double dValue = m_swsSpikes.m_dSpikeLength*1000.0;
-   dValue = (double)StrToFloat(FormatFloat("0.00", (Extended)dValue));
-
-   if (!m_pformSetParameters->SetParameter("Spike-Length", "ms", dValue, this))
-      return;
-
-   #pragma clang diagnostic push
-   #pragma clang diagnostic ignored "-Wfloat-equal"
-   if (dValue != m_swsSpikes.m_dSpikeLength)
-      {
-      m_swsSpikes.Clear();
-      m_swsSpikes.SetSpikeLength(m_swsSpikes.m_dPreThreshold, m_swsSpikes.m_dPostThreshold, dValue/1000.0);
-      m_pformSpikes->Initialize();
-      if (btnRescanSpikes->Enabled)
-         LoadEpoches(SWELM_SPIKES);
-      }
-   #pragma clang diagnostic pop
+   m_smp.ReadSettings(false, true);
+   m_pformSoundSettings->ShowModal();
 }
 //------------------------------------------------------------------------------
 
+
 //------------------------------------------------------------------------------
-/// OnClick callback of btnLoadTemplate: loads a measurement template
+/// OnExecute callback of acLoadTemplate: loads a measurement template
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnLoadTemplateClick(TObject *Sender)
+void __fastcall TformSpikeWare::acLoadTemplateExecute(TObject *Sender)
 {
    od->FileName   = "";
    od->InitialDir = m_usTemplatePath;
@@ -3631,24 +3886,27 @@ void __fastcall TformSpikeWare::btnLoadTemplateClick(TObject *Sender)
 
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnLoadResult: loads a measurement result
+/// OnExecute callback of acLoadResult: loads a measurement result
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnLoadResultClick(TObject *Sender)
+void __fastcall TformSpikeWare::acLoadResultExecute(TObject *Sender)
 {
    od->FileName   = "";
    od->InitialDir = ExpandFileName(m_usResultPathRoot);
    if (od->Execute())
+      {
       LoadMeasurementResult(od->FileName);
+      m_usLastLoadedResult = od->FileName;
+      }
 }
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnAppend: lets user load an XML to be appended to current
+/// OnExecute callback of acAppend: lets user load an XML to be appended to current
 /// result
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnAppendClick(TObject *Sender)
+void __fastcall TformSpikeWare::acAppendExecute(TObject *Sender)
 {
    od->FileName   = "";
    od->InitialDir = ExpandFileName(m_usTemplatePath);
@@ -3663,10 +3921,10 @@ void __fastcall TformSpikeWare::btnAppendClick(TObject *Sender)
 
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnSave: calls SaveResult
+/// OnExecute callback of acSave: calls SaveResult
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnSaveClick(TObject *Sender)
+void __fastcall TformSpikeWare::acSaveExecute(TObject *Sender)
 {
    SaveResult();
 }
@@ -3694,6 +3952,41 @@ void TformSpikeWare::SetMonitor(TformEpoches* pfrm)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// sets inverted status of a channel
+//------------------------------------------------------------------------------
+void TformSpikeWare::SetInverted(TformEpoches* pfrm)
+{
+   // NOTE: function must NOT be called if MeasHasData: better safe than sorry....
+   if (!MeasHasData())
+      {
+      m_sweEpoches.SetInverted((unsigned int)pfrm->Tag, pfrm->tbtnFlipPolarity->Down);
+      if (m_gs == SWGS_FREESEARCHRUN)
+         ClearData();
+      }
+   m_pformEpoches->UpdateFlipPolarityButtons();
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// sets spike time reference vor detection method 2 in Spikes class
+//------------------------------------------------------------------------------
+void TformSpikeWare::SetSpikeTimeReference(TSpikeTimeReference str, bool bForce)
+{
+   // NOTE: function must NOT be called if MeasHasData
+   if (!MeasHasData() || bForce)
+      {
+      // NOTE: we are allowed to call m_sdmDetectionMethods.SetSpikeTimeReference
+      // always: the particular methods "protect" themselves for allowed values
+      m_swsSpikes.m_sdmDetectionMethods.SetSpikeTimeReference(m_swsSpikes.m_sdmDetectionMethods.GetMethodIndex(), str);
+      if (m_gs == SWGS_FREESEARCHRUN)
+         ClearData();
+      }
+
+   m_pformEpoches->UpdateSpikeTimeReferenceButton();
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 /// sets GUI status to passed status
 //------------------------------------------------------------------------------
 void TformSpikeWare::SetGUIStatus(TSWGuiStatus gs)
@@ -3703,49 +3996,45 @@ void TformSpikeWare::SetGUIStatus(TSWGuiStatus gs)
 
    bool bRunning  =  IsRunning();
 
-   btnLoadTemplate->Enabled   = !bRunning && !IsBatchMode();
-   btnLoadResult->Enabled     = btnLoadTemplate->Enabled;
-   btnBatch->Enabled          = btnLoadTemplate->Enabled;
-   miLoadTemplate->Enabled    = btnLoadTemplate->Enabled;
-   miLoadResult->Enabled      = btnLoadTemplate->Enabled;
+   acLoadTemplate->Enabled    = !bRunning && !IsBatchMode();
+   acLoadResult->Enabled      = acLoadTemplate->Enabled;
+   acBatch->Enabled           = acLoadTemplate->Enabled;
 
-   btnAppend->Enabled         = btnLoadTemplate->Enabled && m_gs == SWGS_RESULTLOADED;
-   miAppend->Enabled          = btnAppend->Enabled;
+   acAppend->Enabled          = acLoadTemplate->Enabled && m_gs == SWGS_RESULTLOADED;
 
 
-   btnSave->Enabled     = !bRunning && !IsBatchMode() && xml->Active;
-   miSave->Enabled      = btnSave->Enabled;
-
-   btnCluster->Enabled  =  m_gs > SWGS_NONE
+   acSave->Enabled      = !bRunning && !IsBatchMode() && xml->Active;
+  
+   acCluster->Enabled   =  m_gs > SWGS_NONE
                         && m_gs != SWGS_FREESEARCHRUN
                         && m_gs != SWGS_FREESEARCHSTOP;
-   miCluster->Enabled   = btnCluster->Enabled;
 
-   btnParam->Enabled    = btnCluster->Enabled;
-   miParameter->Enabled = btnParam->Enabled;
+   acParam->Enabled     = acCluster->Enabled;
 
-   btnSearch->Enabled   = m_gs == SWGS_LOADED && !IsBatchMode();
-   btnStop->Enabled     = bRunning
+   acSearch->Enabled    = m_gs == SWGS_LOADED && !IsBatchMode();
+   acStop->Enabled      = bRunning
                         && m_gs != SWGS_FREESEARCHRUN
                         && m_gs != SWGS_FREESEARCHSTOP
                         && !IsBatchMode();
 
 
-   btnPause->Enabled    = !IsBatchMode() && (m_gs == SWGS_RUN || m_gs == SWGS_PAUSE);
+   acPause->Enabled        = !IsBatchMode() && (m_gs == SWGS_RUN || m_gs == SWGS_PAUSE);
 
-   btnFreeSearch->Enabled = !IsBatchMode()
-                           && (m_gs == SWGS_NONE
+   acFreeSearch->Enabled   =     !IsBatchMode()
+                              && (m_gs == SWGS_NONE
                               || m_gs == SWGS_LOADED
                               || m_gs == SWGS_RESULTLOADED);
 
-   miSettings->Enabled = btnFreeSearch->Enabled && ! bRunning;
+   acSettings->Enabled        = acFreeSearch->Enabled && ! bRunning;
+   acSoundSettings->Enabled   = acSettings->Enabled;
 
-   miAdjustSpikeLength->Enabled = m_gs == SWGS_RESULTLOADED;
 
-   btnRescanSpikes->Enabled   = !bRunning && (m_gs == SWGS_RESULTLOADED || m_gs == SWGS_STOP);
-   btnReloadEpoches->Enabled  = btnRescanSpikes->Enabled;
+   acRescanSpikes->Enabled    = !bRunning && (m_gs == SWGS_RESULTLOADED || m_gs == SWGS_STOP);
+   acReloadEpoches->Enabled   = acRescanSpikes->Enabled;
+   acFlipEpoches->Enabled     = acRescanSpikes->Enabled;
+   acSetSpikeDetection->Enabled  = acRescanSpikes->Enabled;
 
-   miUpdateCheck->Enabled      = btnLoadTemplate->Enabled;
+   miUpdateCheck->Enabled     = acLoadTemplate->Enabled;
 
 
 
@@ -3757,11 +4046,15 @@ void TformSpikeWare::SetGUIStatus(TSWGuiStatus gs)
    // - resume incomplete loaded measurement (m_gs == SWGS_SWGS_RESULTLOADED && unfinished epoches present)
 
    bool bUnfinishedEpoches = EpochesXML(true) < EpochesXML(false);
-   btnRun->Enabled      = !IsBatchMode()
-                        && (m_gs == SWGS_LOADED
+   acRun->Enabled          = !IsBatchMode()
+                           && (m_gs == SWGS_LOADED
                            || (m_gs == SWGS_RESULTLOADED && bUnfinishedEpoches)
                            || (m_gs == SWGS_STOP && bUnfinishedEpoches)
                            );
+
+   m_pformEpoches->UpdateFlipPolarityButtons();
+   m_pformEpoches->UpdateSpikeTimeReferenceButton();
+
 
    if (IsBatchMode())
       m_pformBatch->UpdateGUI(false);
@@ -3792,7 +4085,7 @@ UnicodeString  TformSpikeWare::GetStatusString()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// returns true if status is in any of the 'running' or paused states (i.e. 
+/// returns true if status is in any of the 'running' or paused states (i.e.
 /// NOT idle)
 //------------------------------------------------------------------------------
 bool TformSpikeWare::IsRunning()
@@ -3806,20 +4099,60 @@ bool TformSpikeWare::IsRunning()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnReloadEpoches: calls LoadEpoches(SWELM_NOSPIKES)
+/// returns true if status is in any of the 'search' 'run' or  paused states (i.e.
+/// NOT a regular measurement is running)
 //------------------------------------------------------------------------------
-void __fastcall TformSpikeWare::btnReloadEpochesClick(TObject *Sender)
+bool TformSpikeWare::MeasIsRunning()
+{
+   return            m_gs == SWGS_SEARCH
+                  || m_gs == SWGS_RUN
+                  || m_gs == SWGS_PAUSE;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// returns true if status is in NONE of states 'loaded' 'freesearch' or 'search'
+/// (i.e. NOT a regular measurement that has already some data§")
+//------------------------------------------------------------------------------
+bool TformSpikeWare::MeasHasData()
+{
+      if (  m_gs == SWGS_NONE
+         || m_gs == SWGS_LOADED
+         || m_gs == SWGS_FREESEARCHRUN
+         || m_gs == SWGS_FREESEARCHSTOP
+         || m_gs == SWGS_SEARCH
+         )
+         return false;
+   return true;                                                      ;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// OnExecute callback of acReloadEpoches: calls LoadEpoches(SWELM_NOSPIKES)
+//------------------------------------------------------------------------------
 #pragma argsused
+void __fastcall TformSpikeWare::acReloadEpochesExecute(TObject *Sender)
 {
    LoadEpoches(SWELM_NOSPIKES);
 }
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnRescanSpikes: calls LoadEpoches(SWELM_SPIKES_RESET_THRESHOLD)
+/// OnExecute callback of acFlipEpoches: FlipEpoches and reloads epoches
 //------------------------------------------------------------------------------
-void __fastcall TformSpikeWare::btnRescanSpikesClick(TObject *Sender)
 #pragma argsused
+void __fastcall TformSpikeWare::acFlipEpochesExecute(TObject *Sender)
+{
+   if (FlipEpoches())
+      LoadEpoches(SWELM_NOSPIKES);
+}
+//---------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// OnExecute callback of acRescanSpikes: calls LoadEpoches(SWELM_SPIKES_RESET_THRESHOLD)
+//------------------------------------------------------------------------------
+#pragma argsused
+void __fastcall TformSpikeWare::acRescanSpikesExecute(TObject *Sender)
 {
    // ask user....
    if (ID_YES != MessageBox(  Handle,
@@ -3830,6 +4163,134 @@ void __fastcall TformSpikeWare::btnRescanSpikesClick(TObject *Sender)
       return;
    // call loadepoches with resetting thresholds
    LoadEpoches(SWELM_SPIKES_RESET_THRESHOLD);
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// OnExecute callback of acSetSpikeDetection: calls dialog to adjust spike setings
+/// and rescan epoches
+//------------------------------------------------------------------------------
+#pragma argsused
+void __fastcall TformSpikeWare::acSetSpikeDetectionExecute(TObject *Sender)
+{
+   // show form to change spike detection relevant settings
+   TformSpikeSettings* pfrm = new TformSpikeSettings(NULL);
+   try
+      {
+      // read current settings to controls. We read values of current detection method from
+      // m_swsSpikes and value of others from default (ini-file)
+
+      TSpikeDetectionMethodIndex sdmi = m_swsSpikes.m_sdmDetectionMethods.GetMethodIndex();
+      pfrm->frameSpikeSettings->SetSpikeDetectionMethod(sdmi);
+
+      if (sdmi == SDM_VERSION_1)
+         {
+         // Version 1 from m_swsSpikes ...
+         pfrm->frameSpikeSettings->edPreThreshold->Text  = DoubleToStr(1000.0 * m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[sdmi]->GetVariable("PreThreshold"));
+         pfrm->frameSpikeSettings->edPostThreshold->Text = DoubleToStr(1000.0 * m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[sdmi]->GetVariable("PostThreshold"));
+         pfrm->frameSpikeSettings->edSpikeLength->Text   = DoubleToStr(1000.0 * m_swsSpikes.GetSpikeLength());
+
+         pfrm->frameSpikeSettings->edRefractoryTime->Text           = DoubleToStr(1000.0 * IniReadDouble(m_pIni, "Settings", "RefractoryTime", Ini_RefractoryTime));
+         pfrm->frameSpikeSettings->edRefractoryTimeTailFactor->Text = DoubleToStr(IniReadDouble(m_pIni, "Settings", "RefractoryTimeTailFactor", Ini_RefractoryTimeTailFactor));
+         }
+      else if (sdmi == SDM_VERSION_2)
+         {
+         // Version 1 from  ini ...
+         pfrm->frameSpikeSettings->edPreThreshold->Text  = DoubleToStr(1000.0 * IniReadDouble(m_pIni, "Settings", "PreThreshold", Ini_PreThreshold));
+         pfrm->frameSpikeSettings->edPostThreshold->Text = DoubleToStr(1000.0 * IniReadDouble(m_pIni, "Settings", "PostThreshold", Ini_PostThreshold));
+         pfrm->frameSpikeSettings->edSpikeLength->Text   = DoubleToStr(1000.0 * IniReadDouble(m_pIni, "Settings", "SpikeLength", Ini_SpikeLength));
+
+         // Version 2 from m_swsSpikes
+         pfrm->frameSpikeSettings->edRefractoryTime->Text            = DoubleToStr(1000.0 * m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[sdmi]->GetVariable("RefractoryTime"));
+         pfrm->frameSpikeSettings->edRefractoryTimeTailFactor->Text  = DoubleToStr(m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[sdmi]->GetVariable("RefractoryTimeTailFactor"));
+         }
+
+
+      if (m_swsSpikes.m_sdmDetectionMethods.m_vsdmMethods[SDM_VERSION_2]->GetSpikeTimeReference()== STR_PEAK_PLUS)
+         pfrm->frameSpikeSettings->rbPeakPlus->Checked = true;
+      else
+         pfrm->frameSpikeSettings->rbPeakMinus->Checked = true;
+
+      pfrm->frameSpikeSettings->cbRejectSingleSignSpikes->Checked = m_swsSpikes.m_bRejectSingleSignSpikes;
+
+      bool bPeakPlusBefore = pfrm->frameSpikeSettings->rbPeakPlus->Checked;
+      bool bRejectSingleSignSpikesBefore = pfrm->frameSpikeSettings->cbRejectSingleSignSpikes->Checked;
+
+      pfrm->frameSpikeSettings->ResetTags();
+
+      TModalResult mr = pfrm->ShowModal();
+      if (mr == mrOk)
+         {
+
+         bool bAnyChange = false;
+
+
+         TSpikeDetectionMethodIndex sdmiNew = m_swsSpikes.m_sdmDetectionMethods.Name2Index(pfrm->frameSpikeSettings->cbSpikeDetectionMethod->Text);
+         m_swsSpikes.m_sdmDetectionMethods.Index2Name(sdmiNew);
+
+
+         if (sdmiNew == SDM_VERSION_1)
+            {
+            if (  sdmiNew != sdmi
+               || pfrm->frameSpikeSettings->edPreThreshold->Tag
+               || pfrm->frameSpikeSettings->edPostThreshold->Tag
+               || pfrm->frameSpikeSettings->edSpikeLength->Tag
+               )
+               {
+               double dPreThreshold = StrToDouble(pfrm->frameSpikeSettings->edPreThreshold->Text) / 1000.0;
+               double dPostThreshold = StrToDouble(pfrm->frameSpikeSettings->edPostThreshold->Text) / 1000.0;
+               double dSpikeLength = StrToDouble(pfrm->frameSpikeSettings->edSpikeLength->Text) / 1000.0;
+               m_swsSpikes.Clear();
+               m_swsSpikes.SetDetectionMethod1(dSpikeLength, dPreThreshold, dPostThreshold);
+               bAnyChange = true;
+               }
+            }
+         else if (sdmiNew == SDM_VERSION_2)
+            {
+            if (  sdmiNew != sdmi
+               || pfrm->frameSpikeSettings->edRefractoryTime->Tag
+               || pfrm->frameSpikeSettings->edRefractoryTimeTailFactor->Tag
+               )
+               {
+               double dRefractoryTime = StrToDouble(pfrm->frameSpikeSettings->edRefractoryTime->Text) / 1000.0;
+               double dRefractoryTimeTailFactor = StrToDouble(pfrm->frameSpikeSettings->edRefractoryTimeTailFactor->Text);
+               m_swsSpikes.Clear();
+               m_swsSpikes.SetDetectionMethod2(dRefractoryTime, dRefractoryTimeTailFactor);
+               bAnyChange = true;
+               }
+
+            // check Peak+/Peak- only if control enabled NOW at all (then it's relevant at all!)
+            if (bPeakPlusBefore != pfrm->frameSpikeSettings->rbPeakPlus->Checked)
+               {
+               TSpikeTimeReference str = pfrm->frameSpikeSettings->rbPeakPlus->Checked ? STR_PEAK_PLUS : STR_PEAK_MINUS;
+               // second value  'true' == force!
+               SetSpikeTimeReference(str, true);
+               bAnyChange = true;
+               }
+            }
+
+         if (bRejectSingleSignSpikesBefore != pfrm->frameSpikeSettings->cbRejectSingleSignSpikes->Checked)
+            {
+            m_swsSpikes.m_bRejectSingleSignSpikes = pfrm->frameSpikeSettings->cbRejectSingleSignSpikes->Checked;
+            WriteRejectSingleSignSpikes();
+            bAnyChange = true;
+            }
+
+
+         if (bAnyChange)
+            {
+            m_swsSpikes.Clear();
+            m_pformSpikes->UpdateXAxes();
+            if (acRescanSpikes->Enabled)
+               LoadEpoches(SWELM_SPIKES);
+            }
+         }
+      }
+   __finally
+      {
+      TRYDELETENULL(pfrm);
+      ShowDetectionMethod(m_swsSpikes.m_sdmDetectionMethods.GetMethodName());
+      }
 }
 //------------------------------------------------------------------------------
 
@@ -3987,7 +4448,7 @@ void TformSpikeWare::SetGUIBusy(bool bBusy, TWinControl* pctrt)
 void TformSpikeWare::DebugSaveXML(int n)
 {
    xmlSave->Active = false;
-   xmlSave->XML->Text = FormatXMLData(formSpikeWare->xml->XML->Text);
+   xmlSave->XML->Text = FormatXMLData(xml->XML->Text);
    xmlSave->Active = true;
    xmlSave->SaveToFile(xml->FileName + "." + IntToStr(n) +  ".xml");
 }
@@ -4051,10 +4512,10 @@ void TformSpikeWare::ConvertIniFile()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback for miHelp: shows help PDF
+/// OnExecute callback for acHelp: shows help PDF
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::miHelpClick(TObject *Sender)
+void __fastcall TformSpikeWare::acHelpExecute(TObject *Sender)
 {
    UnicodeString us = ExpandFileName(IncludeTrailingBackslash(ExtractFilePath(Application->ExeName)) +  "..\\manual\\Manual.AudioSpike.pdf");
    ShellExecuteW(Handle, NULL, us.w_str(), NULL,  NULL, SW_SHOWNORMAL);
@@ -4063,19 +4524,19 @@ void __fastcall TformSpikeWare::miHelpClick(TObject *Sender)
 
 
 //------------------------------------------------------------------------------
-/// OnClick callback for miAbout: shows about box
+/// OnExecute callback for acAbout: shows about box
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::miAboutClick(TObject *Sender)
+void __fastcall TformSpikeWare::acAboutExecute(TObject *Sender)
 {
    AboutBox->ShowModal();
 }
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback for UpdateCheck: checks for updates
+/// OnExecute callback for acUpdateCheck: checks for updates
 //------------------------------------------------------------------------------
-void __fastcall TformSpikeWare::miUpdateCheckClick(TObject *Sender)
+void __fastcall TformSpikeWare::acUpdateCheckExecute(TObject *Sender)
 {
    // store date, when update check was done last
    m_pIni->WriteDateTime("Settings", "LastUpdateCheckDate", Now());
@@ -4108,93 +4569,6 @@ void __fastcall TformSpikeWare::miUpdateCheckClick(TObject *Sender)
       pfrm->DoShowModal(vch, "AudioSpike", usVersion, "https://www.audiospike.de/download");
       TRYDELETENULL(pfrm);
       }
-}
-//------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------
-/// Shows a special warning about RMS values and influence on final level output
-//------------------------------------------------------------------------------
-bool TformSpikeWare::RMSWarning()
-{
-   UnicodeString usCaption    = "Warning";
-   UnicodeString usIntruction = "RMS values missing";
-   UnicodeString usText       = "You have not specified an RMS value for one or more signals. "
-                                "The missing RMS values are calculated automatically. This may lead to unexpected levels.";
-   UnicodeString usCheckText  = "Don't show this again";
-
-   bool bShowAgain            = true;
-
-   TTaskDialog *ptdlg = NULL;
-   try
-      {
-      ptdlg                   = new TTaskDialog(formSpikeWare);
-      ptdlg->Caption          = usCaption;
-      ptdlg->Title            = usIntruction;
-      ptdlg->Text             = usText;
-      ptdlg->VerificationText = usCheckText;
-      ptdlg->MainIcon         = tdiWarning;
-      ptdlg->CommonButtons    = TTaskDialogCommonButtons() << tcbOk;
-
-      ptdlg->Execute(NULL);
-
-      bShowAgain              = !ptdlg->Flags.Contains(tfVerificationFlagChecked);
-      }
-   // fallback for XP (does not now TTaskDialog)
-   catch (...)
-      {
-      MessageBoxW(Handle, usText.w_str(), usCaption.w_str(), MB_ICONWARNING);
-      }
-
-   TRYDELETENULL(ptdlg);
-
-   return bShowAgain;
-}
-//------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------
-/// Shows special warning if a Hi-Pass is active and that user should check used
-/// stimulus frequencies
-//------------------------------------------------------------------------------
-void TformSpikeWare::HighPassWarning()
-{
-   if (!m_pIni->ReadBool("Settings", "ShowHiPassWarning", true))
-      return;
-
-
-   UnicodeString usCaption    = "Warning";
-   UnicodeString usIntruction = "Hi-Pass in operation";
-   UnicodeString usText       = "You have entered Hi-Pass frequencies for one or more output channel. "
-                                "Be sure that you don't use lower frequencies in your measurement!";
-   UnicodeString usCheckText  = "Don't show this again";
-
-   bool bShowAgain            = true;
-
-   TTaskDialog *ptdlg = NULL;
-   try
-      {
-      ptdlg                   = new TTaskDialog(formSpikeWare);
-      ptdlg->Caption          = usCaption;
-      ptdlg->Title            = usIntruction;
-      ptdlg->Text             = usText;
-      ptdlg->VerificationText = usCheckText;
-      ptdlg->MainIcon         = tdiWarning;
-      ptdlg->CommonButtons    = TTaskDialogCommonButtons() << tcbOk;
-
-
-      ptdlg->Execute(NULL);
-
-      bShowAgain              = !ptdlg->Flags.Contains(tfVerificationFlagChecked);
-      }
-   // fallback for XP (does not now TTaskDialog)
-   catch (...)
-      {
-      MessageBoxW(Handle, usText.w_str(), usCaption.w_str(), MB_ICONWARNING);
-      }
-
-   TRYDELETENULL(ptdlg);
-
-   if (!bShowAgain)
-      m_pIni->WriteBool("Settings", "ShowHiPassWarning", false);
 }
 //------------------------------------------------------------------------------
 
@@ -4232,7 +4606,7 @@ void TformSpikeWare::SetInSitu(bool b, bool bForce)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// returns flag, if AusioSpike is in batch mode
+/// returns flag, if AudioSpike is in batch mode
 //------------------------------------------------------------------------------
 bool TformSpikeWare::IsBatchMode()
 {
@@ -4241,11 +4615,18 @@ bool TformSpikeWare::IsBatchMode()
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-/// OnClick callback of btnBatch: starts batch mode
+/// OnExecute callback of acBatch: starts batch mode
 //------------------------------------------------------------------------------
 #pragma argsused
-void __fastcall TformSpikeWare::btnBatchClick(TObject *Sender)
+void __fastcall TformSpikeWare::acBatchExecute(TObject *Sender)
 {
+   // only used for debugging!
+   /*
+   static int x = 0;
+   m_swsSpikes.DebugSave(x++);
+   return;
+   */
+
    if (IsBatchMode())
       return;
    if (SaveInquiry() == ID_CANCEL)
@@ -4276,7 +4657,7 @@ void __fastcall TformSpikeWare::sbResize(TObject *Sender)
    sb->Panels->Items[SB_P_STATUS]->Width = sb->Width
       - sb->Panels->Items[SB_P_FLOPPY]->Width
       - sb->Panels->Items[SB_P_CONFIG]->Width
-      - sb->Panels->Items[SB_P_DEMO]->Width;
+      - sb->Panels->Items[SB_P_METHOD]->Width;
 
 }
 //------------------------------------------------------------------------------
@@ -4323,6 +4704,88 @@ int TformSpikeWare::NumRunningPlotCommands()
       }
 
    return nReturn;
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// Shows a special warning about RMS values and influence on final level output
+//------------------------------------------------------------------------------
+void TformSpikeWare::RMSWarning()
+{
+   TaskDlg( "RMS values missing",
+            "You have not specified an RMS value for one or more signals. "
+            "The missing RMS values are calculated automatically. This may lead to unexpected levels.",
+            "RMSWarning"
+          );
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// Shows special warning if a Hi-Pass is active and that user should check used
+/// stimulus frequencies
+//------------------------------------------------------------------------------
+void TformSpikeWare::HighPassWarning()
+{
+   TaskDlg( "Hi-Pass in operation",
+            "You have entered Hi-Pass frequencies for one or more output channel. "
+            "Be sure that you don't use lower frequencies in your measurement!",
+            "HiPassWarning"
+          );
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// encapsulates an OK-Cancel TaskDialog with "Don't show this again" checkbox
+/// and reads/stores behaviour from inifile
+//------------------------------------------------------------------------------
+TModalResult TformSpikeWare::TaskDlg(  UnicodeString usIntruction,
+                                       UnicodeString usText,
+                                       LPCSTR lpcszId,
+                                       bool bCancelButton)
+{
+   // first: check if dialog to be displayed at all!
+   if (!!lpcszId)
+      {
+      if (m_pIni->ReadBool("OptionalDialogs", lpcszId, false))
+         return mrOk;
+      }
+
+   UnicodeString usCaption    = "Warning";
+   UnicodeString usCheckText  = "Don't show this message again";
+
+   bool bDontShowAgain        = false;
+   TModalResult mr            = mrOk;
+   TTaskDialog *ptdlg         = NULL;
+   try
+      {
+      ptdlg                   = new TTaskDialog(formSpikeWare);
+      ptdlg->Caption          = usCaption;
+      ptdlg->Title            = usIntruction;
+      ptdlg->Text             = usText;
+      ptdlg->VerificationText = usCheckText;
+      ptdlg->MainIcon         = tdiWarning;
+      if (bCancelButton)
+         ptdlg->CommonButtons    = TTaskDialogCommonButtons() << tcbOk << tcbCancel;
+      else
+         ptdlg->CommonButtons    = TTaskDialogCommonButtons() << tcbOk;
+
+      ptdlg->Execute(NULL);
+      mr = ptdlg->ModalResult;
+
+      bDontShowAgain           = ptdlg->Flags.Contains(tfVerificationFlagChecked);
+      }
+   // fallback for XP (does not now TTaskDialog)
+   catch (...)
+      {
+      MessageBoxW(Handle, usText.w_str(), usCaption.w_str(), MB_ICONWARNING);
+      }
+
+   TRYDELETENULL(ptdlg);
+
+   if (!!lpcszId)
+      m_pIni->WriteBool("OptionalDialogs", lpcszId, bDontShowAgain);
+
+   return mr;
 }
 //------------------------------------------------------------------------------
 

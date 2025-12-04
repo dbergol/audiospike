@@ -134,32 +134,6 @@ enum  {
 class SWSMP
 {
    public:
-      #ifdef CHKCHNLS
-      TStringList*      m_pslChannelsIn;
-      TStringList*      m_pslChannelsOut;
-      // hardware device channel indices
-      int               m_nTriggerChannelIn;
-      int               m_nTriggerChannelOut;
-      int               m_nMonitorChannelOut;
-      int               m_nMicChannelIn;
-      // channels selected in settings (i.e. available)
-      // NOTE: these are hardware indices in ascending order as selected in the
-      // settings dialog. They contain electrode channels ...
-      std::vector<int >             m_viChannelsInSettings;
-      // ... or playback channels respectivey
-      std::vector<int >             m_viChannelsOutSettings;
-
-      // used hardware (!) indices
-      std::vector<int >       m_viHardwareChannelsOutUsed;
-      std::vector<int >       m_viOutTrackIndices;
-
-
-      // soundmexpro channel indices (after init!)
-      int               m_nTriggerChannelOutIndex;
-      int               m_nMonitorChannelOutIndex;
-      int               m_nTriggerChannelInIndex;
-      #endif
-
       bool              m_bAsyncError;
       SWSMPHWChannels   m_swcHWChannels;
       SWSMPHWChannels   m_swcUsedChannels;
@@ -224,7 +198,10 @@ class SWSMP
       // values for maximum search and calibration
       std::valarray<double > m_vadMaxSearch;
       std::valarray<double > m_vadMaxLevelsAvailable;
-      float                   m_fTriggerValue;
+      // trigger values
+      int               m_nTriggerValuedB;
+      int               m_nTriggerThresholddB;
+
 
 
    public:
@@ -257,11 +234,7 @@ class SWSMP
                      int nPos,
                      bool bInput = false,
                      UnicodeString usPlugin = "");
-      #ifdef CHKCHNLS
-      void  InitFreeSearch(std::vector<int >& rviOutputTracks);
-      #else
       void  InitFreeSearch();
-      #endif
       bool  Start(int nEpocheSize = 0);
       void  SoundFreeSearchSignalGenerator(vvf &vvfBuffers);
       void  SoundClipDetector(vvf &vvfBuffers);

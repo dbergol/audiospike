@@ -1,29 +1,29 @@
 //------------------------------------------------------------------------------
-/// \file formVisual.h
+/// \file formAbout.h
 /// \author Berg
 /// \brief Implementation of class TAboutBox 
 ///
-/// Project SoundMexPro
-/// Module  SoundDllPro.dll
+/// Project AudioSpike
+/// Module  AudioSpike.exe
 ///
 /// ****************************************************************************
 /// Copyright 2023 Daniel Berg, Oldenburg, Germany
 /// ****************************************************************************
 ///
-/// This file is part of SoundMexPro.
+/// This file is part of AudioSpike.
 ///
-///    SoundMexPro is free software: you can redistribute it and/or modify
+///    AudioSpike is free software: you can redistribute it and/or modify
 ///    it under the terms of the GNU General Public License as published by
 ///    the Free Software Foundation, either version 3 of the License, or
 ///    (at your option) any later version.
 ///
-///    SoundMexPro is distributed in the hope that it will be useful,
+///    AudioSpike is distributed in the hope that it will be useful,
 ///    but WITHOUT ANY WARRANTY; without even the implied warranty of
 ///    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ///    GNU General Public License for more details.
 ///
 ///    You should have received a copy of the GNU General Public License
-///    along with SoundMexPro.  If not, see <http:///www.gnu.org/licenses/>.
+///    along with AudioSpike.  If not, see <http:///www.gnu.org/licenses/>.
 ///
 //------------------------------------------------------------------------------
 #ifndef formAboutH
@@ -40,7 +40,7 @@
 #include <Vcl.Imaging.pngimage.hpp>
 
 //------------------------------------------------------------------------------
-/// About dialog for SoundMexPro
+/// About dialog for AudioSpike
 //------------------------------------------------------------------------------
 class TAboutBox : public TForm
 {

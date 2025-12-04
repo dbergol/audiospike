@@ -75,9 +75,6 @@ class TSWEpoches
    private:
       CRITICAL_SECTION        m_cs;
       CRITICAL_SECTION        m_csReset;
-      #ifdef CHKCHNLS
-      unsigned int            m_nTriggerChannel;
-      #endif
       int                     m_nRecEpochePos;
       unsigned int            m_nNumTriggerSamplesInNextBuffer;
       unsigned int            m_nNumTriggerSamplesInNextBufferPlay;
@@ -97,14 +94,14 @@ class TSWEpoches
       double         m_dTriggerTestLastTriggerValue;
       int            m_nTriggerTestTriggersPlayed;
       int            m_nStimIndexAtStart;
-      __int64        m_nSamplesPlayed;
-      __int64        m_nLastTriggerPos;
-      int            m_nLastTriggerDistance;
+      int64_t        m_nSamplesPlayed;
+      int64_t        m_nLastTriggerPos;
+      int64_t        m_nLastTriggerDistance;
       bool           m_bTriggerError;
       int            m_nFirstTriggerError;
       UnicodeString  m_usTriggerError;
-      std::vector<double >    m_vdThreshold;
-      std::vector<bool >      m_vbInverted;
+      std::vector<double >   m_vdThreshold;
+      std::vector<int >      m_vnInverted;
 
       TSWEpoches();
       ~TSWEpoches();
@@ -112,16 +109,17 @@ class TSWEpoches
       void           Reset();
       void           Clear();
       void           Start();
-      void           Initialize(unsigned int nNumChannels, unsigned int nSize);
+      void           Initialize( unsigned int nNumChannels,
+                                 unsigned int nSize,
+                                 std::vector<int >& rvnInverted);
       void           InitSave();
       void           AppendSave();
       void           DoneSave();
       unsigned int   GetNumChannels();
       double         GetThreshold(unsigned int nChannelIndex);
       void           SetThreshold(unsigned int nChannelIndex, double dThreshold);
-      #ifdef CHKCHNLS
-      void           SetTriggerChannel(unsigned int nTriggerChannel);
-      #endif
+      void           SetInverted(unsigned int nChannelIndex, bool bInverted);
+      void           SetInverted(bool bInverted);
       TSWEpoche*     Push( vvf& rvvfData,
                            const std::vector<double >& rvdThreshold,
                            unsigned int nStimIndex,
@@ -130,7 +128,7 @@ class TSWEpoches
       TSWEpoche*     Get(int nIndex = -1);
 
       unsigned int   Count();
-      void           SoundProc(vvf &vvfBuffers, bool bTriggerTest);
+      void           SoundProc(vvf &vvfBuffers);
       void           SoundProcTriggerTest(vvf &vvfBuffers);
       void           SoundProcTriggerTestPlay(vvf &vvfBuffers);
 

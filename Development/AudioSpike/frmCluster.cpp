@@ -121,10 +121,10 @@ void __fastcall TformCluster::FormClose(TObject *Sender, TCloseAction &Action)
 //------------------------------------------------------------------------------
 void TformCluster::Initialize(unsigned int nChannels)
 {
-   m_bSelectAllOnNoSelection = formSpikeWare->m_pIni->ReadBool("Settings", "SelectAllOnNoSelection", false);
+   m_bSelectAllOnNoSelection = formSpikeWare->m_pIni->ReadBool("Settings", "SelectAllOnNoSelection", Ini_SelectAllOnNoSelection);
 
    csData->Clear();
-   csData->Pointer->Size = formSpikeWare->m_pIni->ReadInteger("Settings", "ClusterPointSize", 2);
+   csData->Pointer->Size = formSpikeWare->m_pIni->ReadInteger("Settings", "ClusterPointSize", Ini_ClusterPointSize);
 
    chrt->LeftAxis->Title->Caption   = formSpikeWare->m_swsSpikes.m_swspSpikePars.m_vusNames[m_spY]
                                       + " [" + formSpikeWare->m_swsSpikes.m_swspSpikePars.m_vusUnits[m_spY] + "]";

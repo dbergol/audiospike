@@ -83,7 +83,7 @@ __fastcall TformFFTEdit::~TformFFTEdit()
 #pragma argsused
 void __fastcall TformFFTEdit::FormShow(TObject *Sender)
 {
-   m_bUseCalibrator = formSpikeWare->m_pIni->ReadBool("Settings", "UseCalibrator", false);
+   m_bUseCalibrator = formSpikeWare->m_pIni->ReadBool("Settings", "UseCalibrator", Ini_UseCalibrator);
    formSpikeWare->RestoreFormPos(this);
 
    // enable for painting spectra and overdrive LED
@@ -208,11 +208,6 @@ void TformFFTEdit::Init()
 
       m_bRecord      = formSpikeWare->m_smp.m_swcHWChannels.GetRefMic() >= 0;
 
-      #ifdef CHKCHNLS
-      if (formSpikeWare->m_smp.m_nMicChannelIn != formSpikeWare->m_smp.m_swcHWChannels.GetRefMic())
-         ShowMessage("error in " + UnicodeString(__FUNC__));
-      #endif
-
       iOldXPos       = -1;
       iCapturedValue = -1;
       m_bChanged     = false;
@@ -291,12 +286,12 @@ void TformFFTEdit::Init()
          MinSeries->X1 = (double)m_fHighPass;
 
       tbtnPlay->Enabled       = !formSpikeWare->m_smp.Playing();
-      m_nAvgSeconds           = formSpikeWare->m_pIni->ReadInteger("Settings", "FFTAvgSeconds", 10);
+      m_nAvgSeconds           = formSpikeWare->m_pIni->ReadInteger("Settings", "FFTAvgSeconds", Ini_FFTAvgSeconds);
       if (m_cmCalMode != CAL_MODE_INSITU)
-         cbExpertMode->Checked   = formSpikeWare->m_pIni->ReadBool("Settings",   "ExpertMode", false);
+         cbExpertMode->Checked   = formSpikeWare->m_pIni->ReadBool("Settings",   "ExpertMode", Ini_ExpertMode);
       else
          cbExpertMode->Enabled = false;
-      cbLog->Checked          = formSpikeWare->m_pIni->ReadBool("Settings",   "LogFreq", true);
+      cbLog->Checked          = formSpikeWare->m_pIni->ReadBool("Settings",   "LogFreq", Ini_LogFreq);
       cbLog->Checked          = formSpikeWare->m_pIni->ReadBool("Debug",      "FFTPluginLogChecked", cbLog->Checked);
 
       cbLogClick(NULL);

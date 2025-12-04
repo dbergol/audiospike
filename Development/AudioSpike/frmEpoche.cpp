@@ -51,6 +51,9 @@ __fastcall TformEpoches::TformEpoches(TComponent* Owner, int nChannelIndex)
    Tag         = nChannelIndex;
    chrt->Title->Text->Text     = "Channel " + IntToStr(Tag+1);
    Parent = formSpikeWare->m_pformEpoches->scb;
+   tb->Images = formSpikeWare->m_pformEpoches->ilRegular;
+   tb->HotImages = formSpikeWare->m_pformEpoches->ilHot;
+   tb->DisabledImages = formSpikeWare->m_pformEpoches->ilDisabled;
    m_bMouseDown = false;
    csThreshold->SeriesColor = clRed;
    csThreshold->AddXY(0, 0, "", clTeeColor);
@@ -70,7 +73,7 @@ __fastcall TformEpoches::TformEpoches(TComponent* Owner, int nChannelIndex)
    csStimSeries->X1 = 0;
 
    m_nPlotCounter = 0;
-   ClipTimer->Interval = (unsigned int)formSpikeWare->m_pIni->ReadInteger("Settings", "ClipReleaseIn", 200);
+   ClipTimer->Interval = (unsigned int)formSpikeWare->m_pIni->ReadInteger("Settings", "ClipReleaseIn", Ini_ClipReleaseIn);
 }
 //------------------------------------------------------------------------------
 
@@ -95,6 +98,7 @@ void TformEpoches::Initialize()
                            );
    formSpikeWare->RestoreChartAxis(this, chrt);
    UpdateThreshold(formSpikeWare->GetThreshold((unsigned int)Tag));
+
 }
 //------------------------------------------------------------------------------
 
@@ -141,7 +145,11 @@ void TformEpoches::Plot(TSWEpoche *pswe)
       {
       m_nPlotCounter++;
 
-      if (formSpikeWare->m_smp.Playing())
+      // get stimuls length in samples.
+      unsigned int nSimulusLenthSamples = formSpikeWare->m_swsStimuli.m_swstStimuli[pswe->m_nStimIndex].m_nLength;
+
+      // display it only, if avaiable!
+      if(nSimulusLenthSamples)
          {
          csStimSeries->X0 = MsToSamples(formSpikeWare->m_sweEpoches.m_dPreStimulus*1000.0, formSpikeWare->m_swsSpikes.GetSampleRate());
          // for free search subtract trigger offset!
@@ -477,6 +485,21 @@ void __fastcall TformEpoches::tbnListenClick(TObject *Sender)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+/// OnClick callback of tbtnFlipPolarity: calls formSpikeWare->SetInverted
+//------------------------------------------------------------------------------
+#pragma argsused
+void __fastcall TformEpoches::tbtnFlipPolarityClick(TObject *Sender)
+{
+   // NOTE: button should be disabled in MeasHasData anyway, but pressing
+   // it anyway wopuld be fatal: better safe than sorry....
+   if (formSpikeWare->MeasHasData())
+      tbtnFlipPolarity->Down = !tbtnFlipPolarity->Down;
+   else
+      formSpikeWare->SetInverted(this);
+}
+//---------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 // sets clip indicator to red and enebales ClipTimer for resetting it (if not already
 // running)
 //------------------------------------------------------------------------------
@@ -498,5 +521,6 @@ void __fastcall TformEpoches::ClipTimerTimer(TObject *Sender)
    ClipTimer->Enabled = false;
    shClip->Brush->Color = clLime;
 }
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
 

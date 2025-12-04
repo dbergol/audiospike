@@ -65,19 +65,6 @@ float GetHanningValue(unsigned int uWindowPos, unsigned int uWindowLen)
 SWSMP::SWSMP()
  :  m_hLib(NULL), m_lpfnSoundDllProCommand(NULL)
 {
-   #ifdef CHKCHNLS
-   m_pslChannelsIn   = new TStringList();
-   m_pslChannelsOut  = new TStringList();
-   m_nTriggerChannelIn  = -1;
-   m_nTriggerChannelOut = -1;
-   m_nMonitorChannelOut = -1;
-   m_nMicChannelIn      = -1;
-
-   m_nTriggerChannelInIndex   = -1;
-   m_nTriggerChannelOutIndex  = -1;
-   m_nMonitorChannelOutIndex  = -1;
-   #endif
-
    InitializeCriticalSection(&m_cs);
    m_pslDrivers      = new TStringList();
    m_usIniSection = "SoundSettings";
@@ -101,7 +88,8 @@ SWSMP::SWSMP()
    m_nFreeSearchSamplesPlayed       = 0;
    m_bFreeSearchContinuous          = false;
    m_fSchroederRMSdB                = 0.0f;
-   m_fTriggerValue                  = 1.0f;
+   m_nTriggerValuedB                = -1;
+   m_nTriggerThresholddB            = -10;
    m_nFakeTotalRecOffset            = 0;
    m_bSaveProbeMics                 = false;
 }
@@ -114,10 +102,6 @@ SWSMP::~SWSMP()
 {
    ExitLibrary();
    TRYDELETENULL(m_pslDrivers);
-   #ifdef CHKCHNLS
-   TRYDELETENULL(m_pslChannelsIn);
-   TRYDELETENULL(m_pslChannelsOut);
-   #endif
    DeleteCriticalSection(&m_cs);
 }
 //------------------------------------------------------------------------------
@@ -462,13 +446,6 @@ UnicodeString SWSMP::GetCalibrationSection(UnicodeString usChannel)
 //------------------------------------------------------------------------------
 void SWSMP::SetCalibrationValue(unsigned int nOutChannel, double dCalValue)
 {
-   #ifdef CHKCHNLS
-   if ((int)m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT) != m_pslChannelsOut->Count)
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   if (m_swcHWChannels.GetChannelName(nOutChannel, SWSMPHWCDIR_OUT) != m_pslChannelsOut->Strings[(int)nOutChannel])
-      ShowMessage("error B "+ UnicodeString( __FUNC__));
-   #endif
-
    if (nOutChannel >= m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT))
       throw Exception("Cannot write calibration value: index exceeds available channels");
    UnicodeString usChannel = m_swcHWChannels.GetChannelName(nOutChannel, SWSMPHWCDIR_OUT);
@@ -483,18 +460,6 @@ void SWSMP::SetCalibrationValue(unsigned int nOutChannel, double dCalValue)
 double SWSMP::GetCalibrationValueN(unsigned int nOutChannel)
 {
    std::vector<int > vi = m_swcUsedChannels.GetOutputs();
-
-   #ifdef CHKCHNLS
-   if ((int)m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT) != m_pslChannelsOut->Count)
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   if (m_swcHWChannels.GetChannelName((unsigned int)m_viHardwareChannelsOutUsed[nOutChannel], SWSMPHWCDIR_OUT) != m_pslChannelsOut->Strings[m_viHardwareChannelsOutUsed[nOutChannel]])
-      ShowMessage("error B "+ UnicodeString( __FUNC__));
-   if (  m_swcHWChannels.GetChannelName((unsigned int)m_viHardwareChannelsOutUsed[nOutChannel], SWSMPHWCDIR_OUT)
-      != m_swcUsedChannels.GetChannelName((unsigned int)vi[nOutChannel], SWSMPHWCDIR_OUT)
-      )
-      ShowMessage("error D "+ UnicodeString( __FUNC__));
-
-   #endif
 
    if (nOutChannel >= vi.size())
       return 0.0;
@@ -518,14 +483,6 @@ double SWSMP::GetCalibrationValue(UnicodeString usChannel)
 //------------------------------------------------------------------------------
 void SWSMP::SetEqualisation(unsigned int nOutChannel, UnicodeString usEqualisation)
 {
-
-   #ifdef CHKCHNLS
-   if ((int)m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT) != m_pslChannelsOut->Count)
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   if (m_swcHWChannels.GetChannelName(nOutChannel, SWSMPHWCDIR_OUT) != m_pslChannelsOut->Strings[(int)nOutChannel])
-      ShowMessage("error B "+ UnicodeString( __FUNC__));
-   #endif
-
   if (nOutChannel >= m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT))
       throw Exception("Cannot write equalisation: index exceeds available channels");
    UnicodeString usChannel = m_swcHWChannels.GetChannelName(nOutChannel, SWSMPHWCDIR_OUT);
@@ -540,17 +497,6 @@ void SWSMP::SetEqualisation(unsigned int nOutChannel, UnicodeString usEqualisati
 UnicodeString SWSMP::GetEqualisationN(unsigned int nOutChannel)
 {
    std::vector<int > vi = m_swcUsedChannels.GetOutputs();
-
-   #ifdef CHKCHNLS
-   if ((int)m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT) != m_pslChannelsOut->Count)
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   if (m_swcHWChannels.GetChannelName((unsigned int)m_viHardwareChannelsOutUsed[nOutChannel], SWSMPHWCDIR_OUT) != m_pslChannelsOut->Strings[m_viHardwareChannelsOutUsed[nOutChannel]])
-      ShowMessage("error B "+ UnicodeString( __FUNC__));
-   if (  m_swcHWChannels.GetChannelName((unsigned int)m_viHardwareChannelsOutUsed[nOutChannel], SWSMPHWCDIR_OUT)
-      != m_swcUsedChannels.GetChannelName((unsigned int)vi[nOutChannel], SWSMPHWCDIR_OUT)
-      )
-      ShowMessage("error D "+ UnicodeString( __FUNC__));
-   #endif
 
    if (nOutChannel >= vi.size())
       return "";
@@ -583,10 +529,6 @@ UnicodeString SWSMP::GetInSituInput(UnicodeString usOutChannel)
 {
    UnicodeString us = formSpikeWare->m_pIni->ReadString("SoundSettingsInSitu", usOutChannel, "");
 
-   #ifdef CHKCHNLS
-   if (m_swcHWChannels.GetChannelIndex(us, SWSMPHWCDIR_IN) != m_pslChannelsIn->IndexOf(us))
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   #endif
    if (m_swcHWChannels.GetChannelIndex(us, SWSMPHWCDIR_IN) >= -1)
       return us;
    return "";
@@ -602,11 +544,6 @@ int SWSMP::GetInSituInputChannel(UnicodeString usOutChannel)
    UnicodeString us = GetInSituInput(usOutChannel);
    if (us.Length())
       nReturn = m_swcHWChannels.GetChannelIndex(us, SWSMPHWCDIR_IN);
-
-   #ifdef CHKCHNLS
-   if (m_swcHWChannels.GetChannelIndex(us, SWSMPHWCDIR_IN) != m_pslChannelsIn->IndexOf(us))
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   #endif
 
    return nReturn;
 }
@@ -664,20 +601,6 @@ bool SWSMP::Init(int nMode)
       std::vector<int > vi;
       std::vector<int > viChannelsOutSettings = m_swcHWChannels.GetOutputs();
 
-      #ifdef CHKCHNLS
-      if (viChannelsOutSettings.size() != m_viChannelsOutSettings.size())
-         ShowMessage("error A "+ UnicodeString( __FUNC__));
-      else
-         {
-         for (unsigned int x = 0; x < viChannelsOutSettings.size();x++)
-            {
-            if (viChannelsOutSettings[x] !=  m_viChannelsOutSettings[x])
-               ShowMessage("error B "+ UnicodeString( __FUNC__));
-            }
-         }
-      #endif
-
-
       if (nMode == AS_SMP_INIT_FREESEARCH)
          {
          m_nNumLoadedStimuli = 0;
@@ -706,10 +629,6 @@ bool SWSMP::Init(int nMode)
          for (n = 0; n < m_viMeasChannelsOutUsed.size(); n++)
             {
             vi.push_back(viChannelsOutSettings[(unsigned int)m_viMeasChannelsOutUsed[n]]);
-            #ifdef CHKCHNLS
-            if (m_swcHWChannels.GetChannelName((unsigned int)vi.back(), SWSMPHWCDIR_OUT) != m_pslChannelsOut->Strings[vi.back()])
-               ShowMessage("error X1 "+ UnicodeString( __FUNC__));
-            #endif
             formSpikeWare->m_swfFilters->GetHiPass(m_swcHWChannels.GetChannelName((unsigned int)vi.back(), SWSMPHWCDIR_OUT), f);
             if (f > 0.0f)
                bHiPassUsed = true;
@@ -719,10 +638,6 @@ bool SWSMP::Init(int nMode)
          if (bHiPassUsed)
             formSpikeWare->HighPassWarning();
          }
-
-      #ifdef CHKCHNLS
-      m_viHardwareChannelsOutUsed = vi;
-      #endif
 
       // start to fill used channels
       int nTriggerOutHWIndex = m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT);
@@ -742,27 +657,11 @@ bool SWSMP::Init(int nMode)
       // sort them ascending by hardware index
       m_swcUsedChannels.SortByHWIndex(SWSMPHWCDIR_OUT);
 
-      #ifdef CHKCHNLS
-      std::vector<int > viTmp = m_swcUsedChannels.GetOutputIndices();
-      if (viTmp.size() != vi.size())
-         ShowMessage("error V1 "+ UnicodeString( __FUNC__));
-      if (viTmp.size() == vi.size())
-         {
-         for (n = 0; n < vi.size(); n++)
-            {
-            if (vi[n] != viTmp[n])
-               ShowMessage("error V2 "+ UnicodeString( __FUNC__));
-            }
-         }
-      #endif
-
       if (nMode != AS_SMP_INIT_TRIGGERTEST)
          {
          if (!vi.size())
             throw Exception("no output channels configured");
-         // HIER war
-         //    if (false && formSpikeWare->IsInSitu())
-         // WARUM???
+
          if (formSpikeWare->IsInSitu())
             {
             // first check existance of probe-mic filter of all used channels before
@@ -772,11 +671,6 @@ bool SWSMP::Init(int nMode)
                // skip raw output channels: they don't have a probe mic
                if (m_swcHWChannels.IsOutputRaw((unsigned int)vi[n]))
                   continue;
-               //
-               #ifdef CHKCHNLS
-               if (m_swcHWChannels.GetChannelName((unsigned int)vi[n], SWSMPHWCDIR_OUT) != m_pslChannelsOut->Strings[vi[n]])
-                  ShowMessage("error X1 "+ UnicodeString( __FUNC__));
-               #endif
 
                UnicodeString us = GetInSituInputFilterSection(m_swcHWChannels.GetChannelName((unsigned int)vi[n], SWSMPHWCDIR_OUT));
 
@@ -841,39 +735,6 @@ bool SWSMP::Init(int nMode)
             MessageBox(0, "MaxSearch disabled", "Warning", MB_ICONWARNING);
          }
 
-      #ifdef OLDBOUBLETTECHECK
-      // OLD DOUBLETTE CHECK
-      // NOTE: channels ushed to vi only for checking, vi not used below for outputs any more!
-      int nTriggerOutChannel = m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT);
-      vi.push_back(nTriggerOutChannel);
-      int nMonitorOutChannel = m_swcHWChannels.GetMonitor();
-      if (nMonitorOutChannel >= 0)
-         vi.push_back(nMonitorOutChannel);
-      if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT) == m_swcHWChannels.GetMonitor())
-         throw Exception("Monitor out channel unexpectedly identical to trigger out channel");
-
-      if (nMonitorOutChannel != m_nMonitorChannelOut)
-         ShowMessage("error M1 "+ UnicodeString( __FUNC__));
-      if (nTriggerOutChannel != m_nTriggerChannelOut)
-         ShowMessage("error T1 "+ UnicodeString( __FUNC__));
-
-
-      std::sort(vi.begin(), vi.end());
-      // check for doublettes
-      for (n = 0; n < vi.size()-1; n++)
-         {
-         if (vi[n] == vi[n+1])
-            {
-            if (vi[n] == nMonitorOutChannel)
-               throw Exception("Monitor out channel unexpectedly used as output channel as well");
-            else if (vi[n] == nTriggerOutChannel)
-               throw Exception("Trigger out channel unexpectedly used as output channel as well");
-            else
-               throw Exception("Unexpected output channel doublette detected");
-            }
-         }
-      #else
-      // NEW DOUBLETTE CHECK!!
       std::vector<int > viCheck;
       for (n = 0; n < m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_OUT].size(); n++)
          viCheck.push_back((int)m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_OUT][n].m_nHWIndex);
@@ -883,8 +744,6 @@ bool SWSMP::Init(int nMode)
          if (viCheck[n] == viCheck[n+1])
             throw Exception("Unexpectedly an output channel is used twice: " + m_swcHWChannels.GetChannelName(n, SWSMPHWCDIR_OUT));
          }
-      #endif
-
 
       std::vector<int > viOutputTracks = m_swcUsedChannels.GetOutputs();
       UnicodeString usOut;
@@ -892,38 +751,8 @@ bool SWSMP::Init(int nMode)
          usOut += IntToStr((int)m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_OUT][n].m_nHWIndex) + ",";
       RemoveTrailingDelimiter(usOut, L',');
 
-
-      #ifdef CHKCHNLS
-      m_nTriggerChannelOutIndex = (int)std::distance(viCheck.begin(), std::find(viCheck.begin(), viCheck.end(), m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT)));
-      if (m_swcHWChannels.GetMonitor() >= 0)
-         m_nMonitorChannelOutIndex  = (int)std::distance(viCheck.begin(), std::find(viCheck.begin(), viCheck.end(), m_swcHWChannels.GetMonitor()));
-      else
-         m_nMonitorChannelOutIndex = -1;
-
-
-
-      if (m_nTriggerChannelOutIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))
-         ShowMessage("error TO1 " + UnicodeString(__FUNC__) +  ": " + IntToStr(m_nTriggerChannelOutIndex) + " | " + IntToStr(m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT)));
-      if (m_nMonitorChannelOutIndex != m_swcUsedChannels.GetMonitor())
-         ShowMessage("error TM1 " + UnicodeString(__FUNC__) +  ": " + IntToStr(m_nMonitorChannelOutIndex) + " | " + IntToStr(m_swcUsedChannels.GetMonitor()));
-      #endif
-
-
-
       std::vector<int > viChannelsInSettings = m_swcHWChannels.GetElectrodes();
-      #ifdef CHKCHNLS
-      if (viChannelsInSettings.size() != m_viChannelsInSettings.size())
-         ShowMessage("error C "+ UnicodeString( __FUNC__));
-      else
-         {
-         for (unsigned int x = 0; x < viChannelsInSettings.size();x++)
-            {
-            if (viChannelsInSettings[x] !=  m_viChannelsInSettings[x])
-               ShowMessage("error D "+ UnicodeString( __FUNC__));
-            }
-         }
-      #endif
-// HIER
+
       vi.clear();
       if (nMode == AS_SMP_INIT_FREESEARCH)
          vi = viChannelsInSettings;
@@ -988,61 +817,12 @@ bool SWSMP::Init(int nMode)
       // sort them ascending by hardware index
       m_swcUsedChannels.SortByHWIndex(SWSMPHWCDIR_IN);
 
-      #ifdef CHKCHNLS
-      viTmp = m_swcUsedChannels.GetElectrodeIndices();
-      std::vector<int > viTmp2;
-      if (formSpikeWare->IsInSitu() && m_bSaveProbeMics)
-         {
-         viTmp2 = m_swcUsedChannels.GetProbeMicIndices();
-         for (n = 0; n < viTmp2.size(); n++)
-            viTmp.push_back(viTmp2[n]);
-         std::sort(viTmp.begin(), viTmp.end());
-         std::sort(vi.begin(), vi.end());
-         }
-
-      if (viTmp.size() != vi.size())
-         ShowMessage("error VI1 "+ UnicodeString( __FUNC__));
-      if (viTmp.size() == vi.size())
-         {
-         for (n = 0; n < vi.size(); n++)
-            {
-            if (vi[n] != viTmp[n])
-               ShowMessage("error VI2 "+ UnicodeString( __FUNC__));
-            }
-         }
-      #endif
-
-
       // NOTE: input trigger channel ALWAYS added here: used below to load plugin for correct latency handling
       // below in VSTLoad loop on vi!!!
       int nTriggerInChannel = m_swcHWChannels.GetTrigger(SWSMPHWCDIR_IN);
       vi.push_back(nTriggerInChannel);
 
-      #ifdef CHKCHNLS
 
-      if (nTriggerInChannel != m_nTriggerChannelIn)
-         ShowMessage("error T2 "+ UnicodeString( __FUNC__));
-      #endif
-
-
-      #ifdef OLDBOUBLETTECHECK
-      // OLD DOUBLETTE CHECK
-      std::sort(vi.begin(), vi.end());
-
-      // check for doublettes
-      for (n = 0; n < vi.size()-1; n++)
-         {
-         if (vi[n] == vi[n+1])
-            {
-            if (vi[n] == nTriggerInChannel)
-               throw Exception("Trigger in channel unexpectedly used as input channel as well");
-            else
-               throw Exception("Unexpected input channel doublette detected");
-            }
-         }
-
-      #else
-      // NEW DOUBLETTE CHECK!!
       viCheck.clear();
       for (n = 0; n < m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_IN].size(); n++)
          viCheck.push_back((int)m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_IN][n].m_nHWIndex);
@@ -1053,28 +833,10 @@ bool SWSMP::Init(int nMode)
             throw Exception("Unexpectedly an input channel is used twice : " + m_swcHWChannels.GetChannelName(n, SWSMPHWCDIR_IN));
          }
 
-      #endif
-
       UnicodeString usIn;
       for (n = 0; n < m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_IN].size(); n++)
          usIn += IntToStr((int)m_swcUsedChannels.m_vvswcChannels[SWSMPHWCDIR_IN][n].m_nHWIndex) + ",";
       RemoveTrailingDelimiter(usIn, L',');
-
-
-      #ifdef CHKCHNLS
-      std::sort(vi.begin(), vi.end());
-      UnicodeString usIn2;
-      for (n = 0; n < vi.size(); n++)
-         usIn2 += IntToStr(vi[n]) + ",";
-      RemoveTrailingDelimiter(usIn2, L',');
-      if (usIn != usIn2)
-         ShowMessage("error I1C "+ UnicodeString( __FUNC__));
-
-      m_nTriggerChannelInIndex = (int)std::distance(vi.begin(), std::find(vi.begin(), vi.end(), nTriggerInChannel));
-
-      if (m_nTriggerChannelInIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN))
-         ShowMessage("error TI1 "+ UnicodeString( __FUNC__));
-      #endif
 
       int nNotifyChannel = m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT);
       UnicodeString us = "driver=" + m_usDriver + ";";
@@ -1119,18 +881,6 @@ bool SWSMP::Init(int nMode)
       // on success retrieve buffer size
       if (bReturn)
          {
-         #ifdef CHKCHNLS
-         if (m_nTriggerChannelInIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN))
-            ShowMessage("error TI2 "+ UnicodeString( __FUNC__));
-         if (m_nTriggerChannelInIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN))
-            ShowMessage("error TI2 "+ UnicodeString( __FUNC__));
-         #endif
-
-
-         #ifdef CHKCHNLS
-         formSpikeWare->m_sweEpoches.SetTriggerChannel((unsigned int)m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN));
-         #endif
-
          AnsiString asReturn;
          bReturn = Command("getproperties", "", true, &asReturn);
 
@@ -1164,10 +914,6 @@ bool SWSMP::Init(int nMode)
                usFilter = "";
             else
                {
-               #ifdef CHKCHNLS
-               if (m_swcHWChannels.GetChannelName((unsigned int)vi[n], SWSMPHWCDIR_IN) != m_pslChannelsIn->Strings[vi[n]])
-                  ShowMessage("error F1 "+ UnicodeString( __FUNC__));
-               #endif
                usFilter = m_swcHWChannels.GetChannelName((unsigned int)vi[n], SWSMPHWCDIR_IN) + " - BANDPASS";
                }
             // load bandpass
@@ -1179,11 +925,7 @@ bool SWSMP::Init(int nMode)
 
       if (nMode == AS_SMP_INIT_FREESEARCH)
          {
-         #ifdef CHKCHNLS
-         InitFreeSearch(viOutputTracks);
-         #else
          InitFreeSearch();
-         #endif
          }
 
       return bReturn;
@@ -1199,11 +941,7 @@ bool SWSMP::Init(int nMode)
 //------------------------------------------------------------------------------
 /// initializes free search
 //------------------------------------------------------------------------------
-#ifdef CHKCHNLS
-void SWSMP::InitFreeSearch(std::vector<int >& rviOutputTracks)
-#else
 void SWSMP::InitFreeSearch()
-#endif
 {
    m_nFreeSearchSamplesPlayed       = 0;
 
@@ -1242,19 +980,6 @@ void SWSMP::InitFreeSearch()
 
    std::vector<int > viChannelsOutSettings = m_swcHWChannels.GetOutputs();
 
-   #ifdef CHKCHNLS
-   if (rviOutputTracks.size() != viChannelsOutSettings.size())
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   else
-      {
-      for (n = 0; n < viChannelsOutSettings.size(); n++)
-         {
-         if (m_viHardwareChannelsOutUsed[n] != viChannelsOutSettings[n])
-            ShowMessage("error A2 "+ UnicodeString( __FUNC__));
-         }
-      }
-   #endif
-
    // create Schroeder phase tone complex: here we use the highest LoFreq
    // of all used channels and the lowest HiFreq and nSingalLenth
    float fLo = -1.0f;
@@ -1262,13 +987,6 @@ void SWSMP::InitFreeSearch()
    float fLoTmp, fHiTmp;
    for (n = 0; n < viChannelsOutSettings.size(); n++)
       {
-      #ifdef CHKCHNLS
-      if (m_swcHWChannels.GetChannelName((unsigned int)m_viHardwareChannelsOutUsed[n], SWSMPHWCDIR_OUT) != m_pslChannelsOut->Strings[m_viHardwareChannelsOutUsed[n]])
-         ShowMessage("error B "+ UnicodeString( __FUNC__));
-      if (m_swcHWChannels.GetChannelName((unsigned int)m_viHardwareChannelsOutUsed[n], SWSMPHWCDIR_OUT) != m_swcHWChannels.GetChannelName((unsigned int)viChannelsOutSettings[n], SWSMPHWCDIR_OUT))
-         ShowMessage("error B2 "+ UnicodeString( __FUNC__));
-      #endif
-
       formSpikeWare->m_swfFilters->GetChannelFreqs(
                m_swcHWChannels.GetChannelName((unsigned int)viChannelsOutSettings[n], SWSMPHWCDIR_OUT),
                fLoTmp,
@@ -1411,12 +1129,6 @@ bool  SWSMP::VSTLoad(int nChannel, UnicodeString usEqualisation, int nPos, bool 
 //------------------------------------------------------------------------------
 void SWSMP::LoadStim(int nStimInd, bool bFirstStim, int nLoopCount)
 {
-      #ifdef CHKCHNLS
-      if (m_nTriggerChannelOutIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))
-         ShowMessage("error TO1 "+ UnicodeString( __FUNC__));
-      #endif
-
-
    // prepend 2 seconds of silence (only applied for FirstStim - see below)
    int nStartOffset  = (int)floor(2.0*formSpikeWare->m_swsStimuli.m_dDeviceSampleRate);
    // if endless loop, we are in manual search mode: then only prepend 200 ms
@@ -1453,19 +1165,6 @@ void SWSMP::LoadStim(int nStimInd, bool bFirstStim, int nLoopCount)
 
 
    std::vector<int > viOutTrackIndices = m_swcUsedChannels.GetOutputs();
-   #ifdef CHKCHNLS
-   if (m_viOutTrackIndices.size() != viOutTrackIndices.size())
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   else
-      {
-      unsigned int x;
-      for (x = 0; x < viOutTrackIndices.size(); x++)
-         {
-         if (m_viOutTrackIndices[x] != viOutTrackIndices[x])
-            ShowMessage("error V "+ UnicodeString( __FUNC__));
-         }
-      }
-   #endif
 
    vvd& rvvdData = pAudioData->m_vvdData;
    unsigned int nAudioDataChannels = (unsigned int)rvvdData.size();
@@ -1496,7 +1195,7 @@ void SWSMP::LoadStim(int nStimInd, bool bFirstStim, int nLoopCount)
          {
          dCal = GetCalibrationValueN(n);
          if (dCal == 0.0)
-            throw Exception("Calibration value(s) missing, check settings (error 1)");
+            throw Exception("Calibration value(s) missing, check output channel settings (error 1)");
          dGain = dBToFactor(rstim.m_vdParams[(unsigned int)m_viGainIndices[n]] - dCal - dRMS);
          }
       if (formSpikeWare->m_bLevelDebug)
@@ -1527,21 +1226,6 @@ void SWSMP::LoadFreeSearchStim()
    int nStartOffset        = (int)floor(formSpikeWare->m_swsStimuli.m_dDeviceSampleRate );
 
    std::vector<int > viOutTrackIndices = m_swcUsedChannels.GetOutputs();
-   #ifdef CHKCHNLS
-   if (viOutTrackIndices.size() != m_viOutTrackIndices.size())
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   else
-      {
-      unsigned int x;
-      for (x = 0; x < viOutTrackIndices.size(); x++)
-         {
-         if (viOutTrackIndices[x] != m_viOutTrackIndices[x])
-            ShowMessage("error V "+ UnicodeString( __FUNC__));
-         }
-      }
-
-
-   #endif
 
    // here we only load empty dummy stimulus, no trigger: trigger is written
    // in signal generator!!
@@ -1572,13 +1256,6 @@ bool SWSMP::LoadStimuli()
       || m_nNumLoadedStimuli == formSpikeWare->m_viStimSequence.size()
       )
       return true;
-
-      #ifdef CHKCHNLS
-      if (m_nTriggerChannelOutIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))
-         ShowMessage("error TO1 "+ UnicodeString( __FUNC__));
-      if (m_nMonitorChannelOutIndex != m_swcUsedChannels.GetMonitor())
-         ShowMessage("error TM1 "+ UnicodeString( __FUNC__));
-      #endif
 
    // get current track load
    AnsiString asReturn;
@@ -1622,6 +1299,7 @@ bool SWSMP::Prepare(int nStimIndex)
 {
    try
       {
+      double dTriggerValue = dBToFactor((double)m_nTriggerValuedB);
       bool bSearch      = nStimIndex != -1;
       bool bFreeSearch  = nStimIndex == -2;
       if (bFreeSearch)
@@ -1644,68 +1322,17 @@ bool SWSMP::Prepare(int nStimIndex)
       // write trigger
       for (n = 0; n < m_nTriggerLength; n++)
          {
-         m_vadTrigger[(unsigned int)n] = (double)m_fTriggerValue;
+         m_vadTrigger[(unsigned int)n] = dTriggerValue;
          // the first trigger is a special 'double-trigger'. Below
          // second pulse is removed again! Write only half size: we don't want
          // second pulse to be detected as the first one!
-         m_vadTrigger[(unsigned int)(n+4*m_nTriggerLength)] = (double)m_fTriggerValue / 2.0;
+         m_vadTrigger[(unsigned int)(n+4*m_nTriggerLength)] = dTriggerValue / 2.0;
          }
 
       // set correct size for stimulus buffer
       m_vadStimulus.resize((unsigned int)nRepetitionPeriod);
 
-
-      #ifdef CHKCHNLS
-      if (m_nTriggerChannelOutIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))
-         ShowMessage("error TO1 "+ UnicodeString( __FUNC__));
-      if (m_nMonitorChannelOutIndex != m_swcUsedChannels.GetMonitor())
-         ShowMessage("error TM1 "+ UnicodeString( __FUNC__));
-      #endif
-
-
       int nNumOutCh = (int)m_swcUsedChannels.GetOutputs().size();
-      #ifdef CHKCHNLS
-      // create vector with all track indices used for signal output (not trigger)
-      m_viOutTrackIndices.resize(0);
-
-      // - determine total number of used output channels
-      nNumOutCh = (int)m_viMeasChannelsOutUsed.size() + 1; // + 1 for trigger channel!
-      if (m_nMonitorChannelOutIndex >= 0)
-         nNumOutCh++;
-      for (n = 0; n < nNumOutCh; n++)
-         {
-         if (n == m_nMonitorChannelOutIndex || n == m_nTriggerChannelOutIndex)
-            continue;
-         m_viOutTrackIndices.push_back(n);
-         }
-      nNumOutCh = (int)m_viOutTrackIndices.size();
-      // build a vector with indices to ALL needed gains (might be the same index
-      // for all channels...)
-      if (  formSpikeWare->m_swsStimuli.m_nChannelLevels != 1
-         && formSpikeWare->m_swsStimuli.m_nChannelLevels != m_viOutTrackIndices.size()
-         )
-         throw Exception("fatal error: internal gain/output channel sizing error");
-
-      #endif
-
-
-   #ifdef CHKCHNLS
-   std::vector<int > vi = m_swcUsedChannels.GetOutputs();
-
-   // NOTE: this is a bugfix: for freesearch m_viOutTrackIndices was calculated wrong!
-   m_viOutTrackIndices = vi;
-   if (m_viOutTrackIndices.size() != vi.size())
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-   else
-      {
-      unsigned int x;
-      for (x = 0; x < vi.size(); x++)
-         {
-         if (m_viOutTrackIndices[x] != vi[x])
-            ShowMessage("error V "+ UnicodeString( __FUNC__));
-         }
-      }
-   #endif
 
       m_viGainIndices.resize(0);
       int nIndex;
@@ -1766,6 +1393,8 @@ bool SWSMP::PrepareTriggerTest()
 {
    try
       {
+      double dTriggerValue = dBToFactor((double)m_nTriggerValuedB);
+
       formSpikeWare->m_sweEpoches.m_dTriggerTestLastTriggerValue = 0.0;
       // create the trigger
       m_vadTrigger.resize((unsigned int)floor(formSpikeWare->m_swsStimuli.m_dDeviceSampleRate));
@@ -1775,12 +1404,7 @@ bool SWSMP::PrepareTriggerTest()
 
       unsigned int n;
       for (n = 0; n < (unsigned int)m_nTriggerLength; n++)
-         m_vadTrigger[n] = (double)m_fTriggerValue;
-
-      #ifdef CHKCHNLS
-      if (m_nTriggerChannelOutIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))
-         ShowMessage("error TO1 "+ UnicodeString( __FUNC__));
-      #endif
+         m_vadTrigger[n] = dTriggerValue;
 
       // write trigger
       // load endless triggers
@@ -1854,14 +1478,6 @@ bool SWSMP::SetMonitor(int nChannel)
       if (nChannel < 0)
          return true;
 
-      #ifdef CHKCHNLS
-      if (m_nTriggerChannelInIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN))
-         ShowMessage("error TI1 "+ UnicodeString( __FUNC__));
-      if (m_nMonitorChannelOutIndex != m_swcUsedChannels.GetMonitor())
-         ShowMessage("error M1 "+ UnicodeString( __FUNC__));
-      #endif
-
-
       if (nChannel >= m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_IN))
          nChannel++;
       if (!Command("iostatus", "input=" + IntToStr(nChannel) + ";track=" + IntToStr((int)m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))))
@@ -1904,13 +1520,13 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
          m_usIniSection = formSpikeWare->m_pIni->ReadString(formSpikeWare->m_pIni->ReadString("Debug", "Fake", "Fake"), "SoundSettings", "SoundSettings");
          m_nFakeTotalRecOffset   = formSpikeWare->m_pIni->ReadInteger(formSpikeWare->m_pIni->ReadString("Debug", "Fake", "Fake"), "TotalRecOffset", 0);
 
-         m_bSaveProbeMics                 = formSpikeWare->m_pIni->ReadBool("Settings", "SaveProbeMic", false);
-         m_fDefaultSampleRate             = formSpikeWare->m_pIni->ReadInteger("Settings", "SampleRateDefault", 44100);
-         m_fDefaultSampleRateDevider      = formSpikeWare->m_pIni->ReadInteger("Settings", "SampleRateDeviderDefault", 1.0);
-         m_nFreeSearchStimLengthMs        = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchStimLengthMs", 150);
-         m_nFreeSearchPreStimLengthMs     = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchPreStimLengthMs", 20);
-         m_nFreeSearchRepetitionPeriodMs  = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchRepetitionPeriodMs", 350);
-         m_nFreeSearchRampLengthMs        = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchRampLengthMs", 5);
+         m_bSaveProbeMics                 = formSpikeWare->m_pIni->ReadBool("Settings", "SaveProbeMic", Ini_SaveProbeMic);
+         m_fDefaultSampleRate             = formSpikeWare->m_pIni->ReadInteger("Settings", "SampleRateDefault", Ini_SampleRateDefault);
+         m_fDefaultSampleRateDevider      = formSpikeWare->m_pIni->ReadInteger("Settings", "SampleRateDeviderDefault", Ini_SampleRateDeviderDefault);
+         m_nFreeSearchStimLengthMs        = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchStimLengthMs", Ini_FreeSearchStimLengthMs);
+         m_nFreeSearchPreStimLengthMs     = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchPreStimLengthMs", Ini_FreeSearchPreStimLengthMs);
+         m_nFreeSearchRepetitionPeriodMs  = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchRepetitionPeriodMs", Ini_FreeSearchRepetitionPeriodMs);
+         m_nFreeSearchRampLengthMs        = formSpikeWare->m_pIni->ReadInteger("Settings", "FreeSearchRampLengthMs", Ini_FreeSearchRampLengthMs);
          if (  m_nFreeSearchStimLengthMs        <= 0
             || m_nFreeSearchPreStimLengthMs     <  0
             || m_nFreeSearchRepetitionPeriodMs  <= 0
@@ -1918,12 +1534,18 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
             )
             throw Exception("Free search parameters invalid (<= 0)");
 
-         m_fTriggerValue                  = 1.0f;
-         int nTriggerAtt                  = formSpikeWare->m_pIni->ReadInteger("Settings", "TriggerAttenuation", 0);
-         if (nTriggerAtt < 0)
-            m_fTriggerValue               = (float)dBToFactor(nTriggerAtt);
 
-         m_bAllowEqDiffLengths            = formSpikeWare->m_pIni->ReadBool("Settings", "AllowEqDiffLengths", false);
+         // read optional trigger value
+         m_nTriggerValuedB                = formSpikeWare->m_pIni->ReadInteger("Settings", "TriggerAttenuation", Ini_TriggerAttenuation);
+         if (m_nTriggerValuedB > -1 || m_nTriggerValuedB < -10)
+            m_nTriggerValuedB = -1;
+
+         // ... and trigger threshold
+         m_nTriggerThresholddB     = formSpikeWare->m_pIni->ReadInteger("Settings", "TriggerThreshold", Ini_TriggerThreshold);
+         if (m_nTriggerThresholddB > -0 || m_nTriggerThresholddB < -20)
+            m_nTriggerThresholddB = -10;
+
+         m_bAllowEqDiffLengths            = formSpikeWare->m_pIni->ReadBool("Settings", "AllowEqDiffLengths", Ini_AllowEqDiffLengths);
          if (formSpikeWare->IsInSitu())
             m_nEqualisationMethod         = AW_SMP_EQ_FFT;
          else
@@ -1931,7 +1553,7 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
 
          m_nEqFFTLen                      = formSpikeWare->m_pIni->ReadInteger("Settings", "FFTLen", FFTLEN_DEFAULT);
 
-         m_dTriggerLatency = IniReadDouble(formSpikeWare->m_pIni, "Settings", "TriggerLatency", 0.0);
+         m_dTriggerLatency = IniReadDouble(formSpikeWare->m_pIni, "Settings", "TriggerLatency", Ini_TriggerLatency);
 
 
          ParseValues(m_pslDrivers, GetStringValueFromSMPReturn(asReturn, "driver"));
@@ -1947,11 +1569,6 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
 
          // note: SetDriver reinitializes ALL Channels thus resets all channel types as well
          SetDriver(usDriver);
-
-         #ifdef CHKCHNLS
-         if (!GetChannels(m_usDriver, m_pslChannelsIn, m_pslChannelsOut))
-            return false;
-         #endif
 
          if (!m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_OUT) || !m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_IN))
             throw Exception("Selected sound driver has no audio channels. Maybe device is not connected or switched off.");
@@ -1989,11 +1606,6 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
             THROWCOND("No input channels set in settings");
          m_swcHWChannels.SetElectrodes(viChannelsInSettings);
 
-         std::vector<int > viChannelsInInvertedSettings;
-         ParseIntValues(viChannelsInInvertedSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, "ChannelsInInverted", ""), "ChannelsInInverted");
-         m_swcHWChannels.SetInputsInverted(viChannelsInInvertedSettings);
-
-
          int nTriggerChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerOut", -1);
          if (nTriggerChannelOut < 0)
             THROWCOND("No trigger out channel set in settings");
@@ -2018,52 +1630,6 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
          if (nMicChannelIn >= 0 && m_swcHWChannels.GetChannelType((unsigned int)nMicChannelIn, SWSMPHWCDIR_IN) != AS_SMP_NONE)
             THROWCOND("Invalid reference microphone channel set in settings: channel is used as electrode channel or trigger in as well");
          m_swcHWChannels.SetRefMic(nMicChannelIn);
-
-
-         #ifdef CHKCHNLS
-         // Compare AAAALLLL channels old vs new
-         m_nTriggerChannelIn  = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerIn", -1);
-         m_nTriggerChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "TriggerOut", -1);
-         m_nMonitorChannelOut = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MonitorOut", -1);
-         m_nMicChannelIn      = formSpikeWare->m_pIni->ReadInteger(m_usIniSection, "MicIn", -1);
-
-         ParseIntValues(m_viChannelsOutSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, usChannelsOutField, ""), usChannelsOutField);
-         ParseIntValues(m_viChannelsInSettings, formSpikeWare->m_pIni->ReadString(m_usIniSection, "ChannelsIn", ""), "ChannelsIn");
-
-         if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_IN) != m_nTriggerChannelIn)
-            ShowMessage("error A "+ UnicodeString( __FUNC__));
-         if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT) != m_nTriggerChannelOut)
-            ShowMessage("error B "+ UnicodeString( __FUNC__));
-         if (m_swcHWChannels.GetMonitor() != m_nMonitorChannelOut)
-            ShowMessage("error C "+ UnicodeString( __FUNC__));
-         if (m_swcHWChannels.GetRefMic() != m_nMicChannelIn)
-            ShowMessage("error D "+ UnicodeString( __FUNC__));
-
-         std::vector<int > viChannelsOutSettings2 = m_swcHWChannels.GetOutputs();
-         if (viChannelsOutSettings2.size() != m_viChannelsOutSettings.size())
-            ShowMessage("error O1 "+ UnicodeString( __FUNC__));
-         else
-            {
-            for (unsigned int x = 0; x < viChannelsOutSettings2.size();x++)
-               {
-               if (viChannelsOutSettings2[x] !=  m_viChannelsOutSettings[x])
-                  ShowMessage("error O2 "+ UnicodeString( __FUNC__));
-               }
-            }
-         std::vector<int > viChannelsInSettings2 = m_swcHWChannels.GetElectrodes();
-         if (viChannelsInSettings2.size() != m_viChannelsInSettings.size())
-            ShowMessage("error I1 "+ UnicodeString( __FUNC__));
-         else
-            {
-            for (unsigned int x = 0; x < viChannelsInSettings2.size();x++)
-               {
-               if (viChannelsInSettings2[x] !=  m_viChannelsInSettings[x])
-                  ShowMessage("error I2 "+ UnicodeString( __FUNC__));
-               }
-            }
-
-         #endif
-
 
          // for insitu: check, that an insitu channel is available for every selected output!
          if (formSpikeWare->IsInSitu() && viChannelsOutSettings.size())
@@ -2128,7 +1694,6 @@ bool SWSMP::ReadSettings(bool bAbortOnError, bool bForce)
 //------------------------------------------------------------------------------
 void  SWSMP::WriteSettings()
 {
-
    formSpikeWare->m_pIni->WriteString(m_usIniSection, "Driver", m_usDriver);
 
    UnicodeString us, usRaw;
@@ -2145,69 +1710,27 @@ void  SWSMP::WriteSettings()
    RemoveTrailingDelimiter(us, L',');
    RemoveTrailingDelimiter(usRaw, L',');
 
-   #ifdef CHKCHNLS
-   UnicodeString us2;
-
-   for (n = 0; n < m_viChannelsOutSettings.size(); n++)
-      us2 += IntToStr(m_viChannelsOutSettings[n]) + ",";
-   RemoveTrailingDelimiter(us2, L',');
-
-   if (us != us2)
-      {
-      ShowMessage("error A "+ UnicodeString( __FUNC__));
-      }
-   #endif
-
-
    UnicodeString usChannelsOutField = formSpikeWare->IsInSitu() ? "ChannelsOutInSitu" : "ChannelsOut";
    formSpikeWare->m_pIni->WriteString(m_usIniSection, usChannelsOutField, us);
    usChannelsOutField = formSpikeWare->IsInSitu() ? "ChannelsOutRawInSitu" : "ChannelsOutRaw";
    formSpikeWare->m_pIni->WriteString(m_usIniSection, usChannelsOutField, usRaw);
 
    us = "";
-   UnicodeString usInverted;
    for (n = 0; n < m_swcHWChannels.GetNumChannels(SWSMPHWCDIR_IN); n++)
       {
       if (m_swcHWChannels.IsElectrode(n))
-         {
          us += IntToStr((int)n) + ",";
-         if (m_swcHWChannels.IsInputInverted(n))
-            usInverted += IntToStr((int)n) + ",";
-         }
       }
 
    RemoveTrailingDelimiter(us, L',');
-   RemoveTrailingDelimiter(usInverted, L',');
 
 
    formSpikeWare->m_pIni->WriteString(m_usIniSection, "ChannelsIn", us);
-   formSpikeWare->m_pIni->WriteString(m_usIniSection, "ChannelsInInverted", usInverted);
 
    formSpikeWare->m_pIni->WriteInteger(m_usIniSection, "TriggerIn", m_swcHWChannels.GetTrigger(SWSMPHWCDIR_IN));
    formSpikeWare->m_pIni->WriteInteger(m_usIniSection, "TriggerOut", m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT));
    formSpikeWare->m_pIni->WriteInteger(m_usIniSection, "MonitorOut", m_swcHWChannels.GetMonitor());
    formSpikeWare->m_pIni->WriteInteger(m_usIniSection, "MicIn", m_swcHWChannels.GetRefMic());
-
-
-   #ifdef CHKCHNLS
-   us2 = "";
-   for (n = 0; n < m_viChannelsInSettings.size(); n++)
-      us2 += IntToStr(m_viChannelsInSettings[n]) + ",";
-
-   RemoveTrailingDelimiter(us2, L',');
-
-   if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_IN) != m_nTriggerChannelIn)
-      ShowMessage("error B "+ UnicodeString( __FUNC__));
-
-   if (m_swcHWChannels.GetTrigger(SWSMPHWCDIR_OUT) != m_nTriggerChannelOut)
-      ShowMessage("error C "+ UnicodeString( __FUNC__));
-   if (us != us2)
-      ShowMessage("error D "+ UnicodeString( __FUNC__));
-   if (m_swcHWChannels.GetMonitor() != m_nMonitorChannelOut)
-      ShowMessage("error E "+ UnicodeString( __FUNC__));
-   if (m_swcHWChannels.GetRefMic() != m_nMicChannelIn)
-      ShowMessage("error F "+ UnicodeString( __FUNC__));
-   #endif
 }
 //------------------------------------------------------------------------------
 
@@ -2226,29 +1749,6 @@ void SWSMP::SoundFreeSearchSignalGenerator(vvf &vvfBuffers)
       unsigned int nCh = (unsigned int)vvfBuffers.size();
       if (!nCh)
          return;
-
-
-      #ifdef CHKCHNLS
-      if (m_nTriggerChannelOutIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))
-         ShowMessage("error TO1 "+ UnicodeString( __FUNC__));
-      if (m_nMonitorChannelOutIndex != m_swcUsedChannels.GetMonitor())
-         ShowMessage("error TM1 "+ UnicodeString( __FUNC__));
-
-      UnicodeString us1, us2;
-      int nChannelTmp;
-      
-      for (nChannelTmp = 0; nChannelTmp < (int)nCh; nChannelTmp++)
-         {
-         if (m_swcUsedChannels.IsOutput((unsigned int)nChannelTmp))
-            us1 += IntToStr(nChannelTmp) + ",";
-         if (nChannelTmp == m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT) || nChannelTmp == m_swcUsedChannels.GetMonitor())
-            continue;
-         us2 += IntToStr(nChannelTmp) + ",";
-         }
-
-      if (us1 != us2)
-         ShowMessage("error CH1 "+ UnicodeString( __FUNC__));
-      #endif
 
       unsigned int nChannel;
       // clear channels
@@ -2383,39 +1883,6 @@ void SWSMP::SoundClipDetector(vvf &vvfBuffers)
    EnterCriticalSection(&m_cs);
    try
       {
-      #ifdef CHKCHNLS
-      if (formSpikeWare->m_bFreeSearchRunning)
-         {
-         try
-            {
-
-            if (m_nTriggerChannelOutIndex != m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT))
-               throw Exception("error TO1 "+ UnicodeString( __FUNC__));
-            if (m_nMonitorChannelOutIndex != m_swcUsedChannels.GetMonitor())
-               throw Exception("error TM1 "+ UnicodeString( __FUNC__));
-
-            UnicodeString us1, us2;
-            int nChannel;
-            for (nChannel = 0; nChannel < (int)vvfBuffers.size(); nChannel++)
-               {
-               if (m_swcUsedChannels.IsOutput((unsigned int)nChannel))
-                  us1 += IntToStr(nChannel) + ",";
-               if (nChannel == m_swcUsedChannels.GetTrigger(SWSMPHWCDIR_OUT) || nChannel == m_swcUsedChannels.GetMonitor())
-                  continue;
-               us2 += IntToStr(nChannel) + ",";
-               }
-
-            if (us1 != us2)
-               throw Exception("error CH1 "+ UnicodeString( __FUNC__));
-            }
-         catch (Exception &e)
-            {
-            OutputDebugStringW(e.Message.w_str());
-            return;
-            }
-         }
-      #endif
-
       unsigned int nNumChannels = (unsigned int)vvfBuffers.size();
       unsigned int n;
       float fMax;
@@ -2599,7 +2066,7 @@ bool SWSMP::MaxSearch()
                {
                dCal = GetCalibrationValueN(n);
                if (dCal == 0.0)
-                  throw Exception("Calibration value(s) missing, check settings settings (error 2)");
+                  throw Exception("Calibration value(s) missing, check output channel settings (error 2)");
                // 0 dB gain would be exactly calvalue, so we subtract the peak from max-search
                m_vadMaxLevelsAvailable[n] = dCal - FactorTodB(m_vadMaxSearch[n]);
                if (formSpikeWare->m_bLevelDebug)
@@ -2676,11 +2143,6 @@ bool SWSMP::InitCalibration(int nOutChannel, bool bUseRefMic)
       if (formSpikeWare->m_swsStimuli.m_dDeviceSampleRate == 0.0)
          formSpikeWare->m_swsStimuli.m_dDeviceSampleRate = (double)m_fDefaultSampleRate;
 
-      #ifdef CHKCHNLS
-      if (usOutChannel != m_pslChannelsOut->Strings[nOutChannel])
-         ShowMessage("error B "+ UnicodeString( __FUNC__));
-      #endif
-
       // create schroeder phase complex
       float fLo, fHi;
       formSpikeWare->m_swfFilters->GetChannelFreqs(
@@ -2727,11 +2189,6 @@ bool SWSMP::InitCalibration(int nOutChannel, bool bUseRefMic)
       if (!Command("init", us))
          return false;
 
-      #ifdef CHKCHNLS
-      if (usOutChannel != m_pslChannelsOut->Strings[nOutChannel])
-         ShowMessage("error B "+ UnicodeString( __FUNC__));
-      #endif
-
       if (!VSTLoad(0, GetEqualisation(usOutChannel), PLUGIN_POS_EQ))
          return false;
 
@@ -2770,11 +2227,6 @@ LPFNFILTER SWSMP::InitSpectralCalibration(int nOutChannel, TCalMode cmMode)
       if (!Exit())
          throw Exception("cannot Exit SMP");
 
-      #ifdef CHKCHNLS
-      if (m_swcHWChannels.GetRefMic() != m_nMicChannelIn)
-         ShowMessage("error A "+ UnicodeString( __FUNC__));
-      #endif
-
       int nMicChannelIn = m_swcHWChannels.GetRefMic();
       bool bUseMicIn = nMicChannelIn >= 0;
       UnicodeString usOutChannel = m_swcHWChannels.GetChannelName((unsigned int)nOutChannel, SWSMPHWCDIR_OUT);
@@ -2806,11 +2258,6 @@ LPFNFILTER SWSMP::InitSpectralCalibration(int nOutChannel, TCalMode cmMode)
          // ... use probe microphone channel.
          else
             {
-            #ifdef CHKCHNLS
-            if (usOutChannel != m_pslChannelsOut->Strings[nOutChannel])
-               ShowMessage("error B "+ UnicodeString( __FUNC__));
-            #endif
-
             nMicChannel = GetInSituInputChannel(usOutChannel);
             if (nMicChannel < 0)
                throw Exception("In-situ input channel for output '" + usOutChannel + "' not configured.");
@@ -2857,10 +2304,6 @@ LPFNFILTER SWSMP::InitSpectralCalibration(int nOutChannel, TCalMode cmMode)
       // one channel (see "output=" and "input=" arguments on init above
       if (cmMode == CAL_MODE_SPEAKER)
          {
-         #ifdef CHKCHNLS
-         if (usOutChannel != m_pslChannelsOut->Strings[nOutChannel])
-            ShowMessage("error A "+ UnicodeString( __FUNC__));
-         #endif
          // load special plugin to output.
          if (!VSTLoad(0, GetEqualisation(usOutChannel), PLUGIN_POS_EQ, false, usPluginName))
             throw Exception("error loading output cal-plugin for filtering");
@@ -2870,10 +2313,6 @@ LPFNFILTER SWSMP::InitSpectralCalibration(int nOutChannel, TCalMode cmMode)
          }
       else if (cmMode == CAL_MODE_INSITU)
          {
-         #ifdef CHKCHNLS
-         if (usOutChannel != m_pslChannelsOut->Strings[nOutChannel])
-            ShowMessage("error B "+ UnicodeString( __FUNC__));
-         #endif
          // load input plugin with probe-mic filter. We check beforehand, if filter for probe mic
          // is available at all!!
          us = GetInSituInputFilterSection(usOutChannel);

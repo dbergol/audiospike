@@ -70,6 +70,11 @@ class TformEpocheWindow : public TformASUI
       TPanel *pnlTop;
       TBevel *bvl;
       TPanel *pnlTopRight;
+      TImageList *ilRegular;
+      TImageList *ilHot;
+      TImageList *ilDisabled;
+      TToolButton *tbtnSpikeTimeReference;
+      TImageList *il2;
       void __fastcall btnChannelsClick(TObject *Sender);
       void __fastcall tbtnZoomClick(TObject *Sender);
       void __fastcall FormMouseWheel(TObject *Sender, TShiftState Shift, int WheelDelta,
@@ -80,6 +85,7 @@ class TformEpocheWindow : public TformASUI
       void __fastcall EpocheScrollTimerTimer(TObject *Sender);
       void __fastcall sbtnScrollClick(TObject *Sender);
       void __fastcall FormShow(TObject *Sender);
+      void __fastcall tbtnSpikeTimeReferenceClick(TObject *Sender);
    private:	// Benutzer-Deklarationen
       int   m_nHeight;
    public:		// Benutzer-Deklarationen
@@ -93,6 +99,8 @@ class TformEpocheWindow : public TformASUI
       void Plot(TSWEpoche *pswe);
       void PlotSearchData(vvd &rvvdData);
       void UpdateListenButtons(TformEpoches* pfrm);
+      void UpdateFlipPolarityButtons(void);
+      void UpdateSpikeTimeReferenceButton(void);
       void UpdateThreshold(unsigned int nChannel, double dThreshold);
       void SetEvalWindow(TformEpoches* pfrm);
       void SetAllAxis(TformEpoches* pfrm, bool bLeft, bool bForce = false);

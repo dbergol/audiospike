@@ -43,6 +43,8 @@
 #include <Vcl.StdCtrls.hpp>
 #include <Vcl.ExtCtrls.hpp>
 #include <System.IOUtils.hpp>
+#include "frame_SpikeSettings.h"
+#include <Vcl.Forms.hpp>
 //------------------------------------------------------------------------------
 #include <vector>
 //------------------------------------------------------------------------------
@@ -57,8 +59,7 @@ class TformSettings : public TForm
       TButton *btnCancel;
       TPageControl *pc;
       TTabSheet *tsGeneral;
-      TTabSheet *tsSound;
-      TGroupBox *gbSeacrh;
+      TGroupBox *gbSearch;
       TLabel *lbU3;
       TLabel *lblSearchStimlLength;
       TLabel *lblRepetitionPeriod;
@@ -68,13 +69,6 @@ class TformSettings : public TForm
       TEdit *edSearchStimLength;
       TEdit *edSearchRepetitionPeriod;
       TEdit *edSearchRampLength;
-      TGroupBox *gbSpikes;
-      TLabel *lbU1;
-      TLabel *lbPreThreshold;
-      TLabel *lbSpikeLength;
-      TLabel *lbU2;
-      TEdit *edPreThreshold;
-      TEdit *edSpikeLength;
       TGroupBox *gbGeneral;
       TLabel *lblTemplatePath;
       TLabel *lblResultPath;
@@ -82,69 +76,12 @@ class TformSettings : public TForm
       TSpeedButton *sbtnResultPath;
       TEdit *edTemplatePath;
       TEdit *edResultPath;
-      TGroupBox *gbSystem;
-      TLabel *lbDriver;
-      TComboBox *cbDrivers;
-      TLabel *lblSamplerate;
-      TEdit *edSampleRate;
-      TLabel *lblHz;
-      TGroupBox *gbInput;
-      TListView *lvInput;
-      TGroupBox *gbOutput;
-      TListView *lvOutput;
-      TGroupBox *gbTrigger;
-      TGroupBox *gbEqualisation;
-      TLabel *lbTriggerOut;
-      TLabel *lbTriggerIn;
-      TComboBox *cbTriggerOut;
-      TComboBox *cbTriggerIn;
-      TSpeedButton *sbtnTriggerTest;
-      TLabel *lbLatency;
-      TEdit *edLatency;
-      TLabel *lbms;
       TLabel *lblSearchPreStimLength;
       TEdit *edSearchPreStimLength;
       TLabel *lbU5;
-      TPopupMenu *mnuOutput;
-      TMenuItem *miCalibrate;
-      TMenuItem *miRemoveCalibration;
-      TMenuItem *N1;
-      TMenuItem *miSelectEqualisation;
-      TMenuItem *miRemoveEqualisation;
-      TLabel *lbMonitorOut;
-      TComboBox *cbMonitorOut;
-      TSpeedButton *sbtnNoMonitor;
-      TRadioButton *rbImpulseResonse;
-      TRadioButton *rbSpectralEq;
-      TComboBox *cobFFTLen;
-      TLabel *lblFFTLen;
-      TMenuItem *miEditEqualisation;
-      TLabel *lblMicIn;
-      TComboBox *cbMicIn;
-      TSpeedButton *sbtnNoMicIn;
-      TLabel *lblSamples;
-      TComboBox *cbSamplerateDevider;
-      TLabel *lbDownSamplingFactor;
       TGroupBox *gbProgramSettings;
       TCheckBox *cbMultipleInstancesAllowed;
       TCheckBox *cbSaveMAT;
-      TMenuItem *N2;
-      TMenuItem *miSetOutputHighPass;
-      TMenuItem *miRemoveOutputHighPass;
-      TPopupMenu *mnuInput;
-      TMenuItem *miSetInputBandPass;
-      TMenuItem *miRemoveInputBandPass;
-      TGroupBox *gbInSitu;
-      TListView *lvInSitu;
-      TPopupMenu *mnuInSitu;
-      TMenuItem *miInSituCalibrate;
-      TMenuItem *miInSituRemoveCalibration;
-      TMenuItem *MenuItem3;
-      TMenuItem *miInSituSetHiPass;
-      TMenuItem *miInSituRemoveHiPass;
-      TMenuItem *miSelectInputInSitu;
-      TMenuItem *N3;
-      TMenuItem *miRemoveInputInSitu;
       TCheckBox *cbAutoTemplatePath;
       TCheckBox *cbFreeWindows;
       TCheckBox *cbSaveProbeMic;
@@ -155,85 +92,37 @@ class TformSettings : public TForm
       TComboBox *cbSettings;
       TBevel *Bevel1;
       TSpeedButton *sbtnAddSettings;
-      TCheckBox *cbUseCalibrator;
-      TMenuItem *miRawOutputInSitu;
-      TMenuItem *miRawOutput;
       TGroupBox *gbPSTHWindow;
       TLabel *Label1;
       TLabel *Label2;
       TEdit *edPSTHBinSize;
-      TLabel *lbPostThreshold;
-      TEdit *edPostThreshold;
-      TLabel *lbU11;
       TPanel *pnlGeneral;
-      TPanel *pnlSound;
       TCheckBox *cbCheckUpdateOnStartup;
       TCheckBox *cbAutoSave;
-      TMenuItem *miFlipInputPolarity;
+      TTabSheet *tsFreeSearchSettings;
+      TButton *btnResetDontShowAgain;
+      TCheckBox *cbFlipPolarity;
+      TframeSpikeSettings *frameSpikeSettings;
+      TPanel *pnlFreeSearch;
+      TCheckBox *cbAlwaysLoadEpoches;
       void __fastcall FormShow(TObject *Sender);
-      void __fastcall cbDriversChange(TObject *Sender);
-      void __fastcall lvOutputAdvancedCustomDrawItem(TCustomListView *Sender, TListItem *Item,
-             TCustomDrawState State, TCustomDrawStage Stage, bool &DefaultDraw);
-      void __fastcall lvOutputItemChecked(TObject *Sender, TListItem *Item);
-      void __fastcall lvInputAdvancedCustomDrawItem(TCustomListView *Sender, TListItem *Item,
-             TCustomDrawState State, TCustomDrawStage Stage, bool &DefaultDraw);
-      void __fastcall lvInputItemChecked(TObject *Sender, TListItem *Item);
-      void __fastcall cbChannelChange(TObject *Sender);
-      void __fastcall lvColumnClick(TObject *Sender, TListColumn *Column);
       void __fastcall edKeyPress(TObject *Sender, wchar_t &Key);
       void __fastcall btnOkClick(TObject *Sender);
-      void __fastcall sbtnNoMonitorClick(TObject *Sender);
-      void __fastcall sbtnTriggerTestClick(TObject *Sender);
       void __fastcall sbtnPathClick(TObject *Sender);
       void __fastcall edChange(TObject *Sender);
-      void __fastcall mnuOutputPopup(TObject *Sender);
-      void __fastcall miCalibrateClick(TObject *Sender);
-      void __fastcall miRemoveCalibrationClick(TObject *Sender);
-      void __fastcall miSelectEqualisationClick(TObject *Sender);
-      void __fastcall miRemoveEqualisationClick(TObject *Sender);
-      void __fastcall rbEqClick(TObject *Sender);
-      void __fastcall miEditEqualisationClick(TObject *Sender);
-      void __fastcall sbtnNoMicInClick(TObject *Sender);
-      void __fastcall cbSamplerateDeviderChange(TObject *Sender);
-      void __fastcall miSetOutputHighPassClick(TObject *Sender);
-      void __fastcall miRemoveOutputHighPassClick(TObject *Sender);
-      void __fastcall mnuInputPopup(TObject *Sender);
-      void __fastcall miSetInputBandPassClick(TObject *Sender);
-      void __fastcall miRemoveInputBandPassClick(TObject *Sender);
-      void __fastcall miSelectInputInSituClick(TObject *Sender);
-      void __fastcall mnuInSituPopup(TObject *Sender);
-      void __fastcall miRemoveInputInSituClick(TObject *Sender);
-      void __fastcall miInSituCalibrateClick(TObject *Sender);
-      void __fastcall miInSituRemoveCalibrationClick(TObject *Sender);
       void __fastcall cbAutoTemplatePathClick(TObject *Sender);
       void __fastcall cbFreeWindowsClick(TObject *Sender);
-      void __fastcall cbTriggerOutChange(TObject *Sender);
-      void __fastcall cbMonitorOutChange(TObject *Sender);
       void __fastcall cbSettingsChange(TObject *Sender);
       void __fastcall sbtnAddSettingsClick(TObject *Sender);
       void __fastcall cbStyleChange(TObject *Sender);
-      void __fastcall miRawOutputClick(TObject *Sender);
-      void __fastcall miRawOutputInSituClick(TObject *Sender);
-      void __fastcall miFlipInputPolarityClick(TObject *Sender);
-
+      void __fastcall btnResetDontShowAgainClick(TObject *Sender);
    private:	// Benutzer-Deklarationen
       void     WriteSettingsName(UnicodeString us);
       void     ReadSettings();
-      void     ReadChannels();
-      void     ReadCalEq();
-      void     SetSubItemCheckStatus(TListItem* pli, int nSubItem, int nStatus = -1);
-      void     AdjustInternalNames(TListView* plv);
-      void     WriteSettings(bool bNoSoundSettings = false, bool bShowError = true);
-      void     ScrollOutputs(int n);
-      void     SetProbeMicCalStatus(TListItem *pli);
-      bool     OutputIsRaw(TListItem* pli);
-      bool     InputIsInverted(TListItem* pli);
+      void     WriteSettings(void);
    public:		// Benutzer-Deklarationen
       __fastcall TformSettings(TComponent* Owner);
       __fastcall ~TformSettings();
-      void     ReadSoundSettings();
-      int      CheckSettings(bool bCanIgnore = false);
-      void     AdjustEQControls();
 };
 //------------------------------------------------------------------------------
 #endif

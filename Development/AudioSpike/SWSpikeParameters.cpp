@@ -73,9 +73,9 @@ void SWSpikeParameters::Add(  UnicodeString usID,
 
 //------------------------------------------------------------------------------
 /// Sets peaklength by initializing maxima of peak2peak and thrs2peak to passed
-/// peak length
+/// spike length
 //------------------------------------------------------------------------------
-void SWSpikeParameters::SetPeakLength(double dLen)
+void SWSpikeParameters::SetSpikeLength(double dLen)
 {
    m_vdMax[SP_PEAK2PEAK]   = dLen;
    m_vdMax[SP_THRS2PEAK2]  = dLen;
@@ -93,6 +93,6 @@ int SWSpikeParameters::IndexFromID(UnicodeString us)
       if (m_vusIDs[n] == us)
          return (int)n;
       }
-   throw Exception("SpikParameter with ID '" + us + "' not found");
+   throw Exception("SpikeParameter with ID '" + us + "' not found");
 }
 //------------------------------------------------------------------------------

@@ -403,6 +403,13 @@ AnsiString GetFileVersion()
             );
 
    delete[] buf;
+
+   #ifdef ALPHA_VERSION
+   as += " alpha";
+   #endif
+   #ifdef BETA_VERSION
+   as += " beta";
+   #endif
    return as;
 }
 //------------------------------------------------------------------------------

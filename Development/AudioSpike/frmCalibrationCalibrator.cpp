@@ -81,7 +81,7 @@ TModalResult TformCalibrationCalibrator::Calibrate(TForm* pfrm, bool bExitOnClos
    lbDebug->Visible = false;
    btnOk->Tag = 0;
 
-   int nCalibratorAvgSeconds = formSpikeWare->m_pIni->ReadInteger("Settings", "CalibratorAvgSeconds", 3);
+   int nCalibratorAvgSeconds = formSpikeWare->m_pIni->ReadInteger("Settings", "CalibratorAvgSeconds", Ini_CalibratorAvgSeconds);
    m_vafRecBufferLong.resize((unsigned int)(nCalibratorAvgSeconds*formSpikeWare->m_swsStimuli.m_dDeviceSampleRate));
 
 
@@ -89,10 +89,10 @@ TModalResult TformCalibrationCalibrator::Calibrate(TForm* pfrm, bool bExitOnClos
    m_bGo = false;
    m_bRecDone = false;
    m_bAutoReturn = !bExitOnClose;
-   m_dCalibratorLevel = IniReadDouble(formSpikeWare->m_pIni, "Settings", "CalibratorLevel", 94);
+   m_dCalibratorLevel = IniReadDouble(formSpikeWare->m_pIni, "Settings", "CalibratorLevel", Ini_CalibratorLevel);
    m_dCalibratorRMS = 0.0;
 
-   nCalibratorAvgSeconds = formSpikeWare->m_pIni->ReadInteger("Settings", "CalibratorAvgSeconds2", 1);
+   nCalibratorAvgSeconds = formSpikeWare->m_pIni->ReadInteger("Settings", "CalibratorAvgSeconds2", Ini_CalibratorAvgSeconds2);
    m_vafRecBuffer.resize((unsigned int)(nCalibratorAvgSeconds*formSpikeWare->m_swsStimuli.m_dDeviceSampleRate));
    m_vafCalcBuffer.resize(m_vafRecBuffer.size());
    m_vafRecBuffer = 0.0f;
@@ -171,6 +171,8 @@ void __fastcall TformCalibrationCalibrator::ClipTimerTimer(TObject *Sender)
    ClipTimer->Tag = 0;
 
    #ifdef NEWCAL
+   // NOTE THIS IS NOT USED YET
+
    static int x = 0;
    if ((x++%10) == 0 && m_vafCalcBuffer.size())
       {
@@ -342,6 +344,7 @@ void TformCalibrationCalibrator::ProcessRecordBuffer(vvaf& rvvaf)
       ClipTimer->Tag = 1;
 
    #ifdef NEWCAL
+   // NOTE THIS IS NOT USED YET
    unsigned int nSamples = rvvaf[0].size();
    if (m_vafRecBuffer.size() >= nSamples)
       {

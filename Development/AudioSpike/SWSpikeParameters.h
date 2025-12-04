@@ -48,7 +48,7 @@ enum TSpikeParam
    SP_PEAKNEG,             ///< amplitude of the negative peak.
    SP_PEAK2PEAK,           ///< time in µsec between the 1st and 2nd component
    SP_THRS2PEAK2,          ///< time in µsec between the “trigger” (threshold crossing) and 2nd component
-   SP_LAST                 ///< dummy to mark last entry
+   SP_LAST                 ///< dummy to mark last entry for iterators
 };
 //------------------------------------------------------------------------------
 
@@ -66,7 +66,7 @@ class SWSpikeParameters
       SWSpikeParameters();
       void Add(UnicodeString usID, UnicodeString usName,
                UnicodeString usUnit, double dMin, double dMax);
-      void SetPeakLength(double dLen);
+      void SetSpikeLength(double dLen);
       int IndexFromID(UnicodeString us);
 };
 //------------------------------------------------------------------------------

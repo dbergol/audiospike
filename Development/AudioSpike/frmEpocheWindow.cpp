@@ -128,6 +128,7 @@ void TformEpocheWindow::Initialize(int nChannels)
       for (n = 0; n < m_vpformEpoches.size(); n++)
          m_vpformEpoches[n]->Initialize();
       }
+   UpdateFlipPolarityButtons();
    pnlTop->Top = 0;
 }
 //------------------------------------------------------------------------------
@@ -170,6 +171,49 @@ void TformEpocheWindow::UpdateListenButtons(TformEpoches* pfrm)
       if (m_vpformEpoches[n] != pfrm)
          m_vpformEpoches[n]->tbnListen->Down = false;
       }
+}
+//------------------------------------------------------------------------------
+
+// define this only to take screenshots for the manual
+// #define MANUAL_SCREENSHOT
+
+//------------------------------------------------------------------------------
+/// Updates "listen"-button status of all children
+//------------------------------------------------------------------------------
+void TformEpocheWindow::UpdateFlipPolarityButtons(void)
+{
+   unsigned int n;
+   for (n = 0; n < m_vpformEpoches.size(); n++)
+      {
+      #ifdef MANUAL_SCREENSHOT
+      m_vpformEpoches[n]->tbtnFlipPolarity->Enabled      = true;
+      m_vpformEpoches[n]->tbtnFlipPolarity->Down         = (n%2) == 0;
+      m_vpformEpoches[n]->tbtnFlipPolarity->ImageIndex   = m_vpformEpoches[n]->tbtnFlipPolarity->Down ? 5 : 4;
+      #else
+      m_vpformEpoches[n]->tbtnFlipPolarity->Down         = formSpikeWare->m_sweEpoches.m_vnInverted[n];
+      m_vpformEpoches[n]->tbtnFlipPolarity->ImageIndex   = m_vpformEpoches[n]->tbtnFlipPolarity->Down ? 5 : 4;
+      m_vpformEpoches[n]->tbtnFlipPolarity->Enabled      = !formSpikeWare->MeasHasData();
+      #endif
+      }
+}
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+/// Updates SpikeTimeReference button properties
+//------------------------------------------------------------------------------
+void TformEpocheWindow::UpdateSpikeTimeReferenceButton(void)
+{
+   tbtnSpikeTimeReference->Visible     = formSpikeWare->m_swsSpikes.m_sdmDetectionMethods.GetMethodIndex() == SDM_VERSION_2;
+
+   // update all other values indenpendant from current method: button will be invisible anyway
+   tbtnSpikeTimeReference->Down = formSpikeWare->m_swsSpikes.m_sdmDetectionMethods.GetSpikeTimeReference(SDM_VERSION_2) == STR_PEAK_PLUS;
+   tbtnSpikeTimeReference->ImageIndex  = tbtnSpikeTimeReference->Down ? 4 : 3;
+   tbtnSpikeTimeReference->Enabled     = !formSpikeWare->MeasHasData();
+
+   #ifdef MANUAL_SCREENSHOT
+   tbtnSpikeTimeReference->Enabled     = true;
+   tbtnSpikeTimeReference->Visible     = true;
+   #endif
 }
 //------------------------------------------------------------------------------
 
@@ -443,4 +487,18 @@ void __fastcall TformEpocheWindow::EpocheScrollTimerTimer(TObject *Sender)
 }
 //------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------
+/// OnClick callback of tbtnPeakPlus
+//------------------------------------------------------------------------------
+#pragma argsused
+void __fastcall TformEpocheWindow::tbtnSpikeTimeReferenceClick(TObject *Sender)
+{
+   // NOTE: button should be disabled in MeasHasData anyway, but pressing
+   // it anyway would be fatal: better safe than sorry: revert down-status
+   if (formSpikeWare->MeasHasData())
+      tbtnSpikeTimeReference->Down = !tbtnSpikeTimeReference->Down;
+   else
+      formSpikeWare->SetSpikeTimeReference(tbtnSpikeTimeReference->Down ? STR_PEAK_PLUS : STR_PEAK_MINUS );
+}
+//---------------------------------------------------------------------------
 

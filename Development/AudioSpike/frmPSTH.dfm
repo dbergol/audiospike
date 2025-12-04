@@ -225,7 +225,7 @@ inherited formPSTH: TformPSTH
       Left = 217
       Top = 0
       Width = 51
-      Height = 30
+      Height = 13
       Caption = '  binsize: '
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText

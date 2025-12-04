@@ -101,6 +101,7 @@ class TformSpikes : public TformASUI
       __fastcall ~TformSpikes();
       void SetMaxNumSpikes();
       void Initialize();
+      void UpdateXAxes();
       void UpdateThreshold();
       int  NumNonSpikeSeries();
       void Clear();

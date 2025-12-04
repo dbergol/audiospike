@@ -71,7 +71,7 @@ void TSWFilters::SaveHiPass(UnicodeString usChannel, float f)
    m_pFilterIni->WriteInteger(usChannel, "Lin", 1);
    m_pFilterIni->WriteInteger(usChannel, "HiPass", nFreq);
 
-   int ndBPerOctave = formSpikeWare->m_pIni->ReadInteger("Settings", "FilterdBperOctaveOutput", 12);
+   int ndBPerOctave = formSpikeWare->m_pIni->ReadInteger("Settings", "FilterdBperOctaveOutput", Ini_FilterdBperOctaveOutput);
    // create ndB/Octave-filter (for one octave): below hard 0
    m_pFilterIni->WriteInteger(usChannel, IntToStr(nFreq/2-1), 0);
    m_pFilterIni->WriteFloat(usChannel, IntToStr(nFreq/2), dBToFactor(-ndBPerOctave));
@@ -100,7 +100,7 @@ void TSWFilters::SaveBandPass(UnicodeString usChannel, float fLowFreq, float fHi
    m_pFilterIni->WriteInteger(usChannel, "MaxFreq", nFreqUpper);
 
    // create ndB/Octave-filter
-   int ndBPerOctave = formSpikeWare->m_pIni->ReadInteger("Settings", "FilterdBperOctaveInput", 12);
+   int ndBPerOctave = formSpikeWare->m_pIni->ReadInteger("Settings", "FilterdBperOctaveInput", Ini_FilterdBperOctaveInput);
 
    // create ndB/Octave-filter (for one octave): below and above hard 0
    m_pFilterIni->WriteInteger(usChannel, IntToStr(nFreqLower/2-1), 0);

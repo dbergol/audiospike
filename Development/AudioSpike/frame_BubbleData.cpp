@@ -104,7 +104,6 @@ void TframeBubbleData::Initialize(int nType)
       csData->Visible = false;
       chrt->BottomAxis->SetMinMax(0, 1);
       m_pthf->NumBins = formSpikeWare->m_pIni->ReadInteger(Name, "NumBins", 100);
-      // HIER
       SetNumBins(100);
       chrt->LeftAxis->AutomaticMaximum = false;
       }
@@ -114,8 +113,7 @@ void TframeBubbleData::Initialize(int nType)
       m_usName = "PSTH";
       csData->SeriesColor = m_nChartType ? clAqua : clLime;
       chrt->BottomAxis->SetMinMax(0, formSpikeWare->m_sweEpoches.m_dEpocheLength*1000.0);
-      m_pthf->NumBins = formSpikeWare->m_pIni->ReadInteger(Name, "NumBins", 100);
-      // HIER
+      m_pthf->NumBins = formSpikeWare->m_pIni->ReadInteger(Name, "NumBins", 1000);
       SetNumBins(1000);
       chrt->LeftAxis->AutomaticMaximum = true;
       }

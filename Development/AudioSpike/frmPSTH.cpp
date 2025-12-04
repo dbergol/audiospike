@@ -103,7 +103,7 @@ void TformPSTH::Initialize(unsigned int nChannels)
 {
    chrt->BottomAxis->SetMinMax(0, formSpikeWare->m_sweEpoches.m_dEpocheLength*1000.0);
 
-   int nBinLen = formSpikeWare->m_pIni->ReadInteger("Settings", "PSTHBinSize", 1);
+   int nBinLen = formSpikeWare->m_pIni->ReadInteger("Settings", "PSTHBinSize", Ini_PSTHBinSize);
    m_pthf->NumBins = (int)floor(formSpikeWare->m_sweEpoches.m_dEpocheLength*1000) / nBinLen;
    ShowBinSize();
    csSelection->Active      = false;
